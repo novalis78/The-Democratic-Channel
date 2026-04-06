@@ -1,0 +1,392 @@
+\documentclass[journal]{IEEEtran}
+\usepackage{amssymb}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage[normalem]{ulem}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{longtable} % For long tables
+\usepackage{array} 
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{caption}
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage[bottom=0.98in,top=0.75in,left=0.625in,right=0.625in]{geometry}
+
+\begin{document}
+
+\title{The Democratic Channel: An Information-Theoretic Measurement of Preference-Policy Transmission in the United States}
+
+\author{
+    \IEEEauthorblockN{
+    Author Name\IEEEauthorrefmark{1}, Second Author\IEEEauthorrefmark{2} \\} \vspace{1em}
+  \IEEEauthorblockA{\small \IEEEauthorrefmark{1}Department of Computer Science, University Name, Country}%
+        \\ \IEEEauthorblockA{\small \IEEEauthorrefmark{2}Research Institute, Organization Name, Country}%
+    }
+
+\maketitle
+
+\thispagestyle{empty}
+\pagestyle{empty}
+
+\begin{abstract}
+This paper presents Keykeeper, a secure, end-to-end encrypted email platform that integrates modern cryptographic protocols with traditional email architecture. Our system combines a containerized Next.js webmail client with Postfix/Dovecot mail services, leveraging OpenPGP for client-side encryption and WebAuthn for passwordless authentication. The architecture ensures that encryption and decryption occur exclusively on the client side, preventing both service providers and third parties from accessing plaintext email content. We detail the integration of critical components, including browser-based PGP key management, WebAuthn credential handling, secure Stripe billing, and infrastructure hardening practices. The implementation demonstrates that strong security measures—including end-to-end encryption, FIDO2 authentication, and containerized deployment—can be achieved while maintaining a streamlined user experience. Our approach addresses longstanding challenges in email security by eliminating password vulnerabilities, preventing server-side access to message content, and providing intuitive key management for end users.
+\end{abstract}
+
+\begin{IEEEkeywords}
+End-to-End Encryption, Email Security, WebAuthn, OpenPGP, Containerization, Next.js, Postfix, Dovecot, Coolify, FIDO2
+\end{IEEEkeywords}
+
+\section{Introduction}
+Email remains one of the most widely used communication protocols despite significant security limitations in its original design. Traditional email systems expose message content to service providers and potential attackers at multiple points, including mail servers, transit networks, and client applications. While TLS encryption provides transport security, it does not prevent access by mail service operators or attackers who compromise mail servers \cite{garfinkel2003}.
+
+To address these challenges, we present Keykeeper, a comprehensive email platform that implements true end-to-end encryption (E2EE) while maintaining compatibility with existing email infrastructure. Keykeeper combines several key innovations:
+
+\begin{itemize}
+    \item Client-side PGP encryption and decryption, ensuring mail content remains inaccessible to the service provider
+    \item Passwordless authentication via WebAuthn, eliminating password-based vulnerabilities
+    \item Containerized deployment architecture using Coolify for secure, reproducible infrastructure
+    \item Integration with traditional mail services (Postfix/Dovecot) for standards compliance
+    \item Robust key management in the browser environment with hardware key support
+\end{itemize}
+
+The system demonstrates that strong security measures can be implemented without sacrificing usability or compatibility with existing email standards. This paper details the architecture, security mechanisms, and implementation considerations of the Keykeeper platform.
+
+\section{Architecture Overview}
+\label{sec:architecture}
+
+The Keykeeper platform consists of a containerized web application integrated with traditional mail services deployed on a dedicated server. Fig.~\ref{fig:architecture} illustrates the system's primary components and their interactions.
+
+\begin{figure}[htbp]
+    \centering
+    % In a real paper, include an actual figure here
+    % \includegraphics[width=\columnwidth]{figures/architecture.png}
+    \caption{Keykeeper system architecture showing the interaction between components: Next.js webmail client, Postfix/Dovecot mail services, MySQL database, and client-side encryption modules.}
+    \label{fig:architecture}
+\end{figure}
+
+\subsection{Core Components}
+
+Keykeeper's architecture consists of several interconnected components, summarized in Table~\ref{tab:components}.
+
+\begin{table}[htbp]
+\caption{Core System Components and Their Functions}
+\label{tab:components}
+\begin{tabular}{|p{0.18\columnwidth}|p{0.25\columnwidth}|p{0.42\columnwidth}|}
+\hline
+\textbf{Component} & \textbf{Role} & \textbf{Interaction / Notes} \\
+\hline
+Postfix & SMTP Mail Transport (MTA) & Listens on ports 25/587 (TLS). Verifies recipients against MySQL virtual domains/users. Delivers mail to Dovecot via LMTP. Supports SMTP AUTH for sending. \\
+\hline
+Dovecot & IMAP/POP3 Mail Delivery & Uses MySQL for user authentication. Delivers mail to Maildir storage. Provides IMAP/POP3 access over TLS. \\
+\hline
+MySQL & User/Domain Database & Stores virtual mailbox domains, user accounts, aliases, and authentication data for Postfix and Dovecot. \\
+\hline
+Next.js Webmail & Client UI / Application & Deployed via Coolify in Docker. Implements OpenPGP.js for E2EE. Communicates with Dovecot via IMAP or API. Integrates Stripe payment processing. \\
+\hline
+Coolify & Deployment Platform & Orchestrates containers, configures Nginx for proxying, and handles Let's Encrypt SSL certificates. \\
+\hline
+Stripe & Subscription Billing & Provides secure checkout and webhook-based event processing for subscription management. \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{Component Interactions}
+
+The components interact through several key workflows:
+
+\begin{itemize}
+    \item \textbf{User Registration/Login}: Users register using WebAuthn, creating a passwordless credential (typically a FIDO2 security key or platform authenticator). The server stores only the public key portion of the credential, while the private key remains on the user's device.
+    
+    \item \textbf{PGP Key Onboarding}: Users either generate a new PGP keypair in the browser using WebCrypto or import a hardware PGP key (e.g., from a YubiKey). Only the public PGP key is sent to the server and stored in the user's profile, while the private key never leaves the client device.
+    
+    \item \textbf{Incoming Mail Flow}: External senders deliver mail to Keykeeper domains via SMTP to Postfix (using TLS). Postfix verifies the recipient against the MySQL user table and then transfers the message to Dovecot for delivery into the user's Maildir. Messages may already be PGP-encrypted if the sender encrypted them with the recipient's public key.
+    
+    \item \textbf{Webmail Access}: After authentication, the Next.js client retrieves mail from Dovecot, typically via an API that issues IMAP commands over a secure connection. Dovecot looks up the user in MySQL and grants access to their mailbox. The client handles decryption of encrypted messages entirely in the browser.
+    
+    \item \textbf{Outgoing Mail Flow}: When sending mail, the Next.js app handles PGP encryption and signing in the browser before submitting the encrypted message to Postfix via SMTP. Postfix authenticates the request and relays the message to its destination. The server only sees the encrypted content, never the plaintext.
+\end{itemize}
+
+\section{End-to-End Encryption Implementation}
+\label{sec:e2ee}
+
+The cornerstone of Keykeeper's security model is client-side encryption using OpenPGP. All email contents are encrypted on the client side using OpenPGP.js or a similar library, ensuring that the user's PGP private key remains exclusively in the browser environment.
+
+\subsection{Encryption Workflow}
+
+The encryption and decryption processes follow established PGP/MIME patterns:
+
+\begin{itemize}
+    \item \textbf{Sending}: When composing an email, the client looks up the recipient's public key (from a directory or keyserver) and uses OpenPGP to encrypt and sign the message before transmission. The server (Postfix) only processes the encrypted content, with no access to plaintext.
+    
+    \item \textbf{Receiving}: Encrypted messages stored in the user's Maildir on the server are retrieved by the webmail client and decrypted locally using the user's private key. This ensures that neither the service operator nor any third party can access unencrypted mail content.
+\end{itemize}
+
+This implementation relies on robust client-side random number generation via the Web Crypto API (\texttt{window.crypto.getRandomValues()}) and careful key handling practices. While JavaScript cryptography has historically faced criticism, modern Web Crypto APIs address many of these concerns by providing strong cryptographic primitives directly from the browser.
+
+\section{Browser-based PGP Key Management}
+\label{sec:key_management}
+
+A critical aspect of Keykeeper's security model is the management of cryptographic keys entirely within the browser environment. We support two primary approaches:
+
+\subsection{Browser-Generated Keys}
+
+For users without hardware security devices, OpenPGP.js can create a new keypair using WebCrypto's random number generator. The application guides users through key size selection and optional passphrase protection. The generated private key must be secured appropriately:
+
+\begin{itemize}
+    \item The private key is encrypted with a user-chosen passphrase using a high-iteration key derivation function (KDF) like scrypt
+    \item The encrypted key can be stored in IndexedDB or localStorage in armored form
+    \item Unencrypted keys are never stored persistently
+    \item Modern implementations can encrypt the private key using a symmetric key derived via WebAuthn's PRF extension
+\end{itemize}
+
+\subsection{Hardware Key Integration}
+
+For users with hardware security devices (e.g., YubiKeys with OpenPGP applets), the private key never enters the browser environment:
+
+\begin{itemize}
+    \item Cryptographic operations are delegated to the hardware device
+    \item The web interface integrates with WebAuthn/Crypto APIs or Web USB to communicate with the hardware token
+    \item Only the public PGP key is exported to the server, while the private key remains securely on the device
+\end{itemize}
+
+\subsection{Secure Storage Considerations}
+
+Browser-based key storage presents unique challenges that we address through several mechanisms:
+
+\begin{itemize}
+    \item Plain \texttt{localStorage} is vulnerable to cross-site scripting (XSS) attacks, so we prefer \texttt{IndexedDB} with encrypted blobs
+    \item The Web Crypto API supports storing \texttt{CryptoKey} objects in IndexedDB with restrictions on key exportability
+    \item Emerging standards like WebAuthn Passkeys with the PRF extension enable derivation of symmetric keys from hardware authenticators, which can decrypt stored PGP private keys
+    \item Where available, integration with platform-specific secure enclaves (e.g., Android Keystore via Progressive Web Apps) provides additional protection
+\end{itemize}
+
+Under all circumstances, private keys remain exclusively under user control, never transmitted to or stored on the server.
+
+\section{Passwordless Authentication}
+\label{sec:webauthn}
+
+Keykeeper eliminates traditional password vulnerabilities by implementing FIDO2/WebAuthn for passwordless authentication:
+
+\subsection{WebAuthn Registration and Authentication}
+
+During account creation, users register a WebAuthn credential through the following process:
+
+\begin{enumerate}
+    \item The server generates a challenge and sends it to the client
+    \item The client calls \texttt{navigator.credentials.create()} to generate a new credential pair
+    \item The authenticator (security key or platform authenticator) creates a public/private keypair
+    \item The public key and credential ID are sent to the server and stored in the user database
+\end{enumerate}
+
+For subsequent logins:
+
+\begin{enumerate}
+    \item The server issues a random challenge
+    \item The client calls \texttt{navigator.credentials.get()} with the user's credential ID
+    \item The authenticator signs the challenge with the private key
+    \item The server verifies the signature using the stored public key
+\end{enumerate}
+
+This approach is phishing-resistant and eliminates password database risks, as no shared secret is stored server-side.
+
+\subsection{Account Linking and Access Delegation}
+
+Once authenticated via WebAuthn, the server establishes a session and provisions mailbox access through one of several mechanisms:
+
+\begin{itemize}
+    \item Generation of application-specific passwords for the user's Dovecot account, stored in MySQL
+    \item Configuration of Dovecot to trust the web service as an authentication proxy
+    \item Implementation of OAuth2 for delegated access
+\end{itemize}
+
+In practice, the Next.js application acts as the authenticated client, issuing IMAP commands on behalf of the user without exposing authentication credentials. For external email client access, users can generate limited-use tokens or app-specific passwords.
+
+\section{Stripe Integration for Subscription Billing}
+\label{sec:billing}
+
+Keykeeper implements secure subscription billing through Stripe integration:
+
+\begin{itemize}
+    \item The Next.js frontend embeds Stripe Checkout or Stripe Elements for secure payment collection
+    \item Payment information is sent directly from the browser to Stripe; card data never touches Keykeeper servers
+    \item After payment processing, Stripe issues webhooks to the Keykeeper backend
+    \item Each webhook is cryptographically verified before processing the subscription event
+    \item The server records only minimal subscription metadata (status, customer ID) in the user profile
+\end{itemize}
+
+This architecture follows security best practices by:
+
+\begin{itemize}
+    \item Verifying event IDs to prevent duplicate processing
+    \item Limiting webhook event types to the minimum necessary set
+    \item Storing Stripe secret keys exclusively in server environment variables
+    \item Delivering webhooks only to TLS-protected endpoints with verified signatures
+\end{itemize}
+
+This approach ensures secure billing integration without compromising financial data or introducing payment handling risks.
+
+\section{User Onboarding and Mail Experience}
+\label{sec:user_experience}
+
+A streamlined user experience is essential for adoption of secure email systems. We implement a carefully designed onboarding flow:
+
+\begin{enumerate}
+    \item \textbf{Registration and Payment}: Users select a plan and complete payment via Stripe Checkout.
+    
+    \item \textbf{WebAuthn Setup}: Users register a security key or platform authenticator for passwordless login.
+    
+    \item \textbf{PGP Key Creation}: Users either generate a new PGP key in-browser or connect a hardware key with an existing PGP certificate.
+    
+    \item \textbf{Key Backup}: For browser-generated keys, users are prompted to securely back up their private key.
+    
+    \item \textbf{Mailbox Access}: Once configured, users access their encrypted mailbox interface.
+\end{enumerate}
+
+Throughout the onboarding process, users are educated about the passwordless nature of the system and the importance of maintaining access to their authentication credentials and encryption keys.
+
+The webmail interface provides a familiar experience with encryption-specific enhancements:
+
+\begin{itemize}
+    \item Clear indication of encryption status for messages
+    \item Intuitive controls for encrypting outgoing messages
+    \item Key management interface for adding contacts' public keys
+    \item Secure handling of attachments and rich content
+\end{itemize}
+
+\section{Infrastructure Hardening}
+\label{sec:infrastructure}
+
+Security is enforced across all infrastructure layers:
+
+\subsection{Network Security}
+
+\begin{itemize}
+    \item All external services use TLS with Let's Encrypt certificates
+    \item Postfix and Dovecot are configured with modern TLS protocols (minimum TLSv1.2) and strong cipher suites
+    \item The submission port (587) requires STARTTLS and client authentication
+    \item IMAP (993) and LMTP use mandatory TLS encryption
+\end{itemize}
+
+\subsection{DNS and Email Authentication}
+
+\begin{itemize}
+    \item DNSSEC signing of all DNS records ensures cryptographic validation
+    \item SPF records authorize legitimate sending servers
+    \item DKIM signing in Postfix provides message authentication
+    \item DMARC policy enforcement prevents email spoofing
+\end{itemize}
+
+\subsection{Container Security}
+
+\begin{itemize}
+    \item Services run in isolated Docker containers via Coolify
+    \item Minimal base images with processes running as non-root users
+    \item CIS Docker benchmark compliance (avoiding privileged mode, disabling unnecessary capabilities)
+    \item Regular vulnerability scanning of container images
+    \item Resource limitation for each container (memory, CPU quotas)
+    \item Volume mounting with strict permissions for data persistence
+\end{itemize}
+
+\subsection{Host-Level Hardening}
+
+\begin{itemize}
+    \item Regular OS updates and security patches
+    \item Firewall rules restricting access to necessary ports only
+    \item SSH hardening (key-based authentication, non-standard port)
+    \item Mandatory access control via AppArmor or SELinux
+    \item Intrusion detection and prevention (fail2ban)
+    \item Disabled unnecessary services and protocols
+\end{itemize}
+
+\subsection{Database Security}
+
+\begin{itemize}
+    \item MySQL configured to listen only on localhost or Docker internal network
+    \item Strong authentication requirements for database access
+    \item TLS or UNIX socket connections from web application
+    \item Regular database backups to secure external storage
+\end{itemize}
+
+\subsection{Monitoring and Incident Response}
+
+\begin{itemize}
+    \item Comprehensive logging of all service activities
+    \item Automated intrusion detection based on log analysis
+    \item Container integrity monitoring
+    \item Documented incident response procedures
+\end{itemize}
+
+These measures create a defense-in-depth security posture that protects the infrastructure while maintaining the client-side encryption model that prevents server access to message content.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+The Keykeeper platform demonstrates that comprehensive email security—including true end-to-end encryption, passwordless authentication, and robust infrastructure hardening—can be achieved without sacrificing usability or compatibility with existing email standards. By implementing OpenPGP encryption exclusively on the client side and leveraging WebAuthn for authentication, we eliminate many traditional email security vulnerabilities while providing a familiar user experience.
+
+Key innovations in our approach include:
+
+\begin{itemize}
+    \item Seamless integration of browser-based cryptography with traditional mail services
+    \item Implementation of passwordless authentication for phishing-resistant security
+    \item Secure key management approaches for both browser-generated and hardware-backed keys
+    \item Container-based deployment architecture with comprehensive security controls
+\end{itemize}
+
+Future work will focus on expanding hardware key support, implementing secure key recovery mechanisms, and enhancing the user experience for key discovery and contact verification. We believe this architecture provides a robust template for secure email services that respect user privacy while maintaining interoperability with existing email infrastructure.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{10}
+
+\bibitem{garfinkel2003}
+S. Garfinkel, "Email-based identification and authentication: an alternative to PKI?" IEEE Security \& Privacy, vol. 1, no. 6, pp. 20-26, 2003.
+
+\bibitem{bonneau2012}
+J. Bonneau, C. Herley, P. C. van Oorschot, and F. Stajano, "The quest to replace passwords: A framework for comparative evaluation of web authentication schemes," in Proceedings of the IEEE Symposium on Security and Privacy, 2012, pp. 553-567.
+
+\bibitem{duong2011}
+T. Duong and J. Rizzo, "Here come the ninjas," Unpublished manuscript, 2011.
+
+\bibitem{openpgp2007}
+J. Callas, L. Donnerhacke, H. Finney, D. Shaw, and R. Thayer, "OpenPGP message format," RFC 4880, Internet Engineering Task Force, 2007.
+
+\bibitem{w3c2019}
+W3C and FIDO Alliance, "Web Authentication: An API for accessing public key credentials," W3C Recommendation, 2019.
+
+\bibitem{shay2016}
+R. Shay, S. Komanduri, A. L. Durity, P. S. Huh, M. L. Mazurek, S. M. Segreti, B. Ur, L. Bauer, N. Christin, and L. F. Cranor, "Designing password policies for strength and usability," ACM Transactions on Information and System Security, vol. 18, no. 4, pp. 13:1-13:34, 2016.
+
+\bibitem{postfix2021}
+W. Venema, "The Postfix home page," http://www.postfix.org/, 2021.
+
+\bibitem{dovecot2021}
+T. Sirainen, "Dovecot - Secure IMAP server," https://www.dovecot.org/, 2021.
+
+\bibitem{stripe2021}
+Stripe, Inc., "Stripe API Reference," https://stripe.com/docs/api, 2021.
+
+\bibitem{loncaric2018}
+C. Loncaric, M. L. Mazurek, and E. Bello-Ogunu, "Tuning, Friction, and Control: Barriers to End-to-End Encrypted Email," in Proceedings of the Fourteenth Symposium on Usable Privacy and Security (SOUPS), 2018.
+
+\bibitem{dockerhardening2021}
+Center for Internet Security, "CIS Docker Benchmarks," Center for Internet Security, Inc., 2021.
+
+\bibitem{ruoti2016}
+S. Ruoti, J. Andersen, S. Heidbrink, M. O'Neill, E. Vaziripour, J. Wu, D. Zappala, and K. Seamons, "We're on the same page: A usability study of secure email using pairs of novice users," in Proceedings of the 2016 CHI Conference on Human Factors in Computing Systems, 2016, pp. 4298-4308.
+
+\bibitem{dnssec2019}
+P. Hoffman and J. Schlyter, "The DNS-based authentication of named entities (DANE) transport layer security (TLS) protocol: TLSA," RFC 6698, Internet Engineering Task Force, 2012.
+
+\bibitem{webcrypto2017}
+W3C, "Web Cryptography API," W3C Recommendation, 2017.
+
+\bibitem{webdbstorage2019}
+A. Russell, J. Song, J. Archibald, and M. Kruisselbrink, "Indexed Database API 2.0," W3C Recommendation, 2018.
+
+\end{thebibliography}
+
+\end{document}
