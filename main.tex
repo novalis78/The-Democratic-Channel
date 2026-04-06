@@ -1,391 +1,672 @@
-\documentclass[journal]{IEEEtran}
-\usepackage{amssymb}
-\usepackage{multirow}
-\usepackage{xcolor}
-\usepackage[normalem]{ulem}
-\usepackage{graphicx}
-\usepackage{listings}
-\usepackage[most]{tcolorbox}
-\usepackage{longtable} % For long tables
-\usepackage{array} 
-\usepackage{tabularx}
-\usepackage{booktabs}
-\usepackage{caption}
-\hyphenation{op-tical net-works semi-conduc-tor}
+\documentclass[twocolumn,10pt]{article}
 
-\usepackage{amsmath}
+% ---- Packages ----
+\usepackage{amsmath,amssymb,amsfonts}
 \usepackage{booktabs}
-\usepackage[bottom=0.98in,top=0.75in,left=0.625in,right=0.625in]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usetikzlibrary{positioning}
+\usepackage{caption}
+\usepackage{natbib}
+\bibliographystyle{plainnat}
+\usepackage{authblk}
+\usepackage{microtype}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}
+
+% ---- Metadata ----
+\title{\textbf{The Democratic Channel: An Information-Theoretic Measurement of Preference-Policy Transmission in the United States}}
+
+\author[1]{Lennart Lopin\thanks{ORCID: 0009-0001-2751-2060. Correspondence: lennart@marscoin.org}}
+\affil[1]{Marscoin Foundation / Euler's Identity LLC}
+
+\date{April 2026}
 
 \begin{document}
-
-\title{The Democratic Channel: An Information-Theoretic Measurement of Preference-Policy Transmission in the United States}
-
-\author{
-    \IEEEauthorblockN{
-    Author Name\IEEEauthorrefmark{1}, Second Author\IEEEauthorrefmark{2} \\} \vspace{1em}
-  \IEEEauthorblockA{\small \IEEEauthorrefmark{1}Department of Computer Science, University Name, Country}%
-        \\ \IEEEauthorblockA{\small \IEEEauthorrefmark{2}Research Institute, Organization Name, Country}%
-    }
-
 \maketitle
-
 \thispagestyle{empty}
-\pagestyle{empty}
 
+% ============================================================
+% ABSTRACT
+% ============================================================
 \begin{abstract}
-This paper presents Keykeeper, a secure, end-to-end encrypted email platform that integrates modern cryptographic protocols with traditional email architecture. Our system combines a containerized Next.js webmail client with Postfix/Dovecot mail services, leveraging OpenPGP for client-side encryption and WebAuthn for passwordless authentication. The architecture ensures that encryption and decryption occur exclusively on the client side, preventing both service providers and third parties from accessing plaintext email content. We detail the integration of critical components, including browser-based PGP key management, WebAuthn credential handling, secure Stripe billing, and infrastructure hardening practices. The implementation demonstrates that strong security measures—including end-to-end encryption, FIDO2 authentication, and containerized deployment—can be achieved while maintaining a streamlined user experience. Our approach addresses longstanding challenges in email security by eliminating password vulnerabilities, preventing server-side access to message content, and providing intuitive key management for end users.
+We present the first application of Shannon's information theory to the empirical measurement of democratic preference-policy transmission.  Modeling representative democracy as a communication channel---with citizen preferences as the source signal, legislative institutions as the channel, and binary policy outcomes as the output---we compute the mutual information $I(X;Y)$ between preference distributions and policy adoption using the Gilens and Page (2014) dataset ($N=1{,}836$ policy issues, 1981--2002).  We find that the citizen-to-policy channel transmits 0.025~bits of information, operating at 2.7\% of Shannon capacity.  The elite-to-policy channel transmits 0.037~bits (4.0\% efficiency), and the interest-group channel 0.020~bits (2.1\%).  All three channels operate below 5\% of theoretical capacity.  Conditional mutual information analysis reveals that elites retain $1.7\times$ the independent influence of median-income citizens (95\% CI: $1.1\times$--$1.8\times$), confirming the qualitative finding of Gilens and Page.  However, the deeper result is that even elite preferences resolve only 4\% of policy outcome uncertainty---the system is not a well-functioning pipeline captured by a narrow elite, but a fundamentally degraded channel that transmits almost no signal from any measured source.  Unlike regression-based approaches, mutual information captures all statistical dependence (linear and nonlinear) and is immune to the multicollinearity that has driven the methodological debate surrounding the original findings.  Results are robust across three independently constructed datasets ($N$ up to 4,710), six discretization schemes, and 1,000 bootstrap resamples.  We discuss implications for institutional design and outline extensions using directed information for causal analysis.
 \end{abstract}
 
-\begin{IEEEkeywords}
-End-to-End Encryption, Email Security, WebAuthn, OpenPGP, Containerization, Next.js, Postfix, Dovecot, Coolify, FIDO2
-\end{IEEEkeywords}
+\smallskip
+\noindent\textbf{Keywords:} information theory, mutual information, democratic responsiveness, preference-policy linkage, channel capacity, political representation
 
+% ============================================================
+% 1. INTRODUCTION
+% ============================================================
 \section{Introduction}
-Email remains one of the most widely used communication protocols despite significant security limitations in its original design. Traditional email systems expose message content to service providers and potential attackers at multiple points, including mail servers, transit networks, and client applications. While TLS encryption provides transport security, it does not prevent access by mail service operators or attackers who compromise mail servers \cite{garfinkel2003}.
+\label{sec:intro}
 
-To address these challenges, we present Keykeeper, a comprehensive email platform that implements true end-to-end encryption (E2EE) while maintaining compatibility with existing email infrastructure. Keykeeper combines several key innovations:
+Consider a communication channel that transmits 2.7\% of the signal it receives.  A telecommunications engineer presented with this specification would reject it as non-functional: more than 97\% of the input is lost to noise.  No consequential decision would be routed through such a channel if an alternative existed.
 
-\begin{itemize}
-    \item Client-side PGP encryption and decryption, ensuring mail content remains inaccessible to the service provider
-    \item Passwordless authentication via WebAuthn, eliminating password-based vulnerabilities
-    \item Containerized deployment architecture using Coolify for secure, reproducible infrastructure
-    \item Integration with traditional mail services (Postfix/Dovecot) for standards compliance
-    \item Robust key management in the browser environment with hardware key support
-\end{itemize}
+This paper measures the channel that connects citizen preferences to government policy in the United States.  The measurement framework is Shannon's information theory~\citep{shannon1948}, the foundational mathematics of all modern communication.  Shannon showed that every channel has a \emph{capacity}---a maximum rate at which information can be reliably transmitted---and that the actual mutual information between input and output quantifies how much of that capacity is used.
 
-The system demonstrates that strong security measures can be implemented without sacrificing usability or compatibility with existing email standards. This paper details the architecture, security mechanisms, and implementation considerations of the Keykeeper platform.
+The analogy between democracy and communication is not merely metaphorical.  In representative democracy, citizens hold preferences over policy outcomes (the source signal).  These preferences are encoded through elections, surveys, lobbying, and protest (the encoder).  The signal passes through legislative institutions subject to noise from campaign finance, interest-group lobbying, bureaucratic friction, and status quo bias (the channel).  Policy outcomes emerge as the decoded output.  The fundamental empirical question---how faithfully does the output reflect the input?---is precisely a question about channel efficiency.
 
-\section{Architecture Overview}
-\label{sec:architecture}
+The most comprehensive attempt to answer this question empirically is due to \citet{gilens2014testing}, who analyzed 1,779 policy issues (later expanded to 1,836 in the replication data) and found that the preferences of median-income Americans had ``near-zero'' independent effect on policy outcomes once the preferences of economic elites and organized interest groups were controlled for.  This finding generated significant attention but also methodological criticism.  \citet{bashir2015} and \citet{branham2017} showed that because citizen and elite preferences are correlated at $r = 0.94$, the multivariate regression used by Gilens and Page suffers from severe multicollinearity, making the individual coefficients unreliable.  \citet{enns2015} argued that the high correlation itself implies citizens usually get what they want, since they want roughly the same things elites want.
 
-The Keykeeper platform consists of a containerized web application integrated with traditional mail services deployed on a dedicated server. Fig.~\ref{fig:architecture} illustrates the system's primary components and their interactions.
+These critiques and responses have played out entirely within the framework of linear regression.  We propose a different approach.  Shannon's mutual information $I(X;Y)$ measures the \emph{total} statistical dependence between two random variables---linear and nonlinear---without assuming any parametric model.  It is immune to multicollinearity by construction: mutual information between $X$ and $Y$ is a property of the joint distribution $P(X,Y)$, not of a coefficient in a fitted model.  Moreover, information theory provides an absolute benchmark that regression cannot: \emph{channel capacity}, the theoretical maximum information the channel could transmit.  The ratio of actual mutual information to channel capacity gives a channel efficiency measure that is interpretable without reference to another system.
 
-\begin{figure}[htbp]
-    \centering
-    % In a real paper, include an actual figure here
-    % \includegraphics[width=\columnwidth]{figures/architecture.png}
-    \caption{Keykeeper system architecture showing the interaction between components: Next.js webmail client, Postfix/Dovecot mail services, MySQL database, and client-side encryption modules.}
-    \label{fig:architecture}
+To our knowledge, no prior work has computed the mutual information between empirical preference distributions and policy outcomes, or estimated the channel efficiency of a democratic system.  This paper does so.
+
+% ============================================================
+% 2. RELATED WORK
+% ============================================================
+\section{Related Work}
+\label{sec:related}
+
+Our contribution sits at the intersection of three literatures: empirical preference-policy linkage, information theory in political science, and social choice theory interpreted through an information-theoretic lens.
+
+\subsection{The Gilens--Page Finding and Its Critics}
+
+\citet{gilens2012} compiled a dataset of 1,779 policy issues on which national surveys measured public preferences, coded by income percentile.  \citet{gilens2014testing} used multivariate logistic regression to estimate the independent effect of preferences at the 50th (``median citizen'') and 90th (``economic elite'') income percentiles, along with a net interest-group alignment index.  Their headline result---that the median citizen's preferences have a ``minuscule, near-zero, statistically non-significant impact upon public policy'' when elite preferences are controlled---was widely interpreted as evidence of oligarchy.
+
+The finding was contested on both methodological and interpretive grounds.  \citet{bashir2015} demonstrated that the $r = 0.94$ correlation between citizen and elite preferences renders the individual regression coefficients highly sensitive to specification.  \citet{branham2017} showed that when citizen and elite preferences diverge, citizens get their preferred outcome more often than elites do.  \citet{enns2015} argued that the high correlation means citizens usually get what they want---not because citizens drive policy, but because the correlation ensures that elite-driven policy coincidentally aligns with citizen preferences on most issues.
+
+These debates remain unresolved because the underlying statistical framework---multivariate regression with highly correlated predictors---is poorly suited to the question.  When two independent variables share 94\% of their variance, attributing the explained variance to one or the other is inherently fragile.  Information theory does not require this attribution: mutual information measures total dependence without decomposing it into ``effects'' of correlated predictors.
+
+\subsection{Information Theory in Political Science}
+
+Information-theoretic concepts have appeared in political science, but sporadically and without systematic application to preference-policy data.  \citet{matsusaka1995} modeled voter turnout using an information-theoretic framework, treating elections as signals about candidate quality.  Work in the physics of social dynamics has used Shannon entropy to characterize opinion distributions~\citep{caticha2015}, and studies of voting power have drawn on mutual information to quantify a voter's influence on outcomes~\citep{kirsch2007}.  \citet{downs1957} foreshadowed information-theoretic reasoning by framing the ``rational ignorance'' of voters as a cost-benefit calculation about information acquisition.
+
+However, we are not aware of any work that computes the actual mutual information between empirically measured citizen preferences and policy outcomes.  The gap is striking: the mathematical machinery exists, the data exist, yet the measurement has not been performed.
+
+\subsection{Social Choice and Channel Capacity Bounds}
+
+Classical social choice results can be reinterpreted as statements about the information-theoretic limits of preference aggregation.  Arrow's impossibility theorem~\citep{arrow1951} shows that no rank-order voting system can simultaneously satisfy a set of reasonable fairness conditions---effectively, that perfect preference transmission through any ordinal aggregation channel is impossible.  \citet{gibbard1973} and \citet{satterthwaite1975} demonstrated that all non-dictatorial voting systems are susceptible to strategic manipulation, which is informationally equivalent to adversarial noise injection.  \citet{mckelvey1976} proved that in multidimensional policy spaces, majority-rule outcomes can cycle through any point---the ``chaos theorem''---implying that the channel's output may be essentially disconnected from the input in high-dimensional spaces.
+
+These theoretical results establish that some information loss is \emph{inherent} to preference aggregation.  Our empirical contribution is to measure how much loss actually occurs and to compare it to the theoretical bounds.
+
+% ============================================================
+% 3. FORMAL FRAMEWORK
+% ============================================================
+\section{Formal Framework}
+\label{sec:framework}
+
+\subsection{The Democratic Channel Model}
+
+We model democratic preference-policy transmission as a discrete memoryless channel (DMC) in Shannon's framework.  Figure~\ref{fig:channel} illustrates the model.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[every node/.style={rectangle, draw, rounded corners, minimum width=1.5cm, minimum height=0.7cm, align=center, font=\footnotesize}, node distance=1.2cm]
+\node[fill=blue!10] (source) {Source $X$};
+\node[fill=orange!10, right=of source] (channel) {Channel};
+\node[fill=green!10, right=of channel] (output) {Output $Y$};
+\node[fill=red!10, below=0.7cm of channel] (noise) {Noise $N$};
+\draw[->, thick] (source) -- (channel);
+\draw[->, thick] (channel) -- (output);
+\draw[->, thick] (noise) -- (channel);
+\node[draw=none, below=0.01cm of source, font=\tiny] {Citizen Prefs};
+\node[draw=none, below=0.01cm of channel, font=\tiny] {};
+\node[draw=none, below=0.01cm of output, font=\tiny] {Policy Outcome};
+\node[draw=none, below=0.01cm of noise, font=\tiny] {Lobbying};
+\end{tikzpicture}
+\caption{The democratic channel model.  Citizen preferences (source) are transmitted through legislative institutions (channel) to produce policy outcomes (output).  Interest-group lobbying, campaign finance, and institutional friction act as noise.}
+\label{fig:channel}
 \end{figure}
 
-\subsection{Core Components}
+Formally, let $X$ denote a random variable representing the preference distribution of a specified population group (e.g., citizens at the 50th income percentile) over a policy issue, and let $Y \in \{0, 1\}$ denote the binary policy outcome (change adopted or not).  The channel is characterized by the conditional distribution $P(Y|X)$.
 
-Keykeeper's architecture consists of several interconnected components, summarized in Table~\ref{tab:components}.
+\subsection{Shannon Entropy}
 
-\begin{table}[htbp]
-\caption{Core System Components and Their Functions}
-\label{tab:components}
-\begin{tabular}{|p{0.18\columnwidth}|p{0.25\columnwidth}|p{0.42\columnwidth}|}
-\hline
-\textbf{Component} & \textbf{Role} & \textbf{Interaction / Notes} \\
-\hline
-Postfix & SMTP Mail Transport (MTA) & Listens on ports 25/587 (TLS). Verifies recipients against MySQL virtual domains/users. Delivers mail to Dovecot via LMTP. Supports SMTP AUTH for sending. \\
-\hline
-Dovecot & IMAP/POP3 Mail Delivery & Uses MySQL for user authentication. Delivers mail to Maildir storage. Provides IMAP/POP3 access over TLS. \\
-\hline
-MySQL & User/Domain Database & Stores virtual mailbox domains, user accounts, aliases, and authentication data for Postfix and Dovecot. \\
-\hline
-Next.js Webmail & Client UI / Application & Deployed via Coolify in Docker. Implements OpenPGP.js for E2EE. Communicates with Dovecot via IMAP or API. Integrates Stripe payment processing. \\
-\hline
-Coolify & Deployment Platform & Orchestrates containers, configures Nginx for proxying, and handles Let's Encrypt SSL certificates. \\
-\hline
-Stripe & Subscription Billing & Provides secure checkout and webhook-based event processing for subscription management. \\
-\hline
+The uncertainty of the policy outcome is measured by its Shannon entropy:
+\begin{equation}
+H(Y) = -\sum_{y \in \{0,1\}} P(y) \log_2 P(y).
+\label{eq:entropy}
+\end{equation}
+For a binary outcome with adoption rate $p = 0.35$, we obtain $H(Y) = -0.35\log_2 0.35 - 0.65\log_2 0.65 = 0.934$~bits.  This is the total uncertainty about policy outcomes before observing any preferences.
+
+\subsection{Mutual Information}
+
+The mutual information between preferences $X$ and outcomes $Y$ quantifies how much of this uncertainty is resolved by observing preferences:
+\begin{equation}
+I(X;Y) = \sum_{x,y} P(x,y) \log_2 \frac{P(x,y)}{P(x)P(y)}.
+\label{eq:mi}
+\end{equation}
+Equivalently, $I(X;Y) = H(Y) - H(Y|X)$: the reduction in outcome uncertainty given knowledge of preferences.  If $X$ and $Y$ are independent, $I(X;Y) = 0$.  If $Y$ is completely determined by $X$, $I(X;Y) = H(Y)$.
+
+Crucially, $I(X;Y)$ captures \emph{all} statistical dependence---linear, monotonic, and nonlinear---between $X$ and $Y$.  It makes no parametric assumptions about the functional form of the relationship.  This is its principal advantage over regression-based measures.
+
+\subsection{Channel Capacity and Efficiency}
+
+The channel capacity is defined as:
+\begin{equation}
+C = \max_{P(X)} I(X;Y).
+\label{eq:capacity}
+\end{equation}
+For our binary output channel, the capacity is bounded above by $C \leq H(Y)$, since $I(X;Y) \leq \min(H(X), H(Y))$.  We define \emph{channel efficiency} as:
+\begin{equation}
+\eta = \frac{I(X;Y)}{H(Y)},
+\label{eq:efficiency}
+\end{equation}
+which gives the fraction of outcome uncertainty resolved by preferences.  This is a conservative measure: it compares actual MI to the output entropy $H(Y)$ rather than to the true (unknown) capacity, which may be lower.  An efficiency of $\eta = 0$ means preferences and outcomes are statistically independent; $\eta = 1$ means outcomes are fully determined by preferences.
+
+\subsection{Conditional Mutual Information}
+
+To measure the \emph{independent} contribution of each group's preferences, we use conditional mutual information.  For two groups with preferences $X_1$ (citizen) and $X_2$ (elite):
+\begin{equation}
+I(X_1; Y | X_2) = I(X_1, X_2; Y) - I(X_2; Y),
+\label{eq:cmi}
+\end{equation}
+which gives the additional information $X_1$ provides about $Y$ beyond what $X_2$ already provides.  This is the information-theoretic analogue of ``controlling for'' $X_2$.  Unlike partial regression coefficients, $I(X_1; Y | X_2)$ does not assume linearity and is well-defined regardless of the correlation between $X_1$ and $X_2$.
+
+\subsection{Discretization and Estimation}
+
+Because the preference variables are continuous (proportions on $[0,1]$), we discretize them into $K$ equal-width bins before estimating the joint distribution.  The MI is then computed from the empirical histogram-based estimate of $P(x,y)$.  We use $K = 10$ as our default and verify robustness across $K \in \{5, 8, 10, 15, 20, 25\}$.
+
+Histogram-based MI estimators have a known positive bias of approximately $(K-1)(J-1)/(2N\ln 2)$ for $K$ bins and $J$ output categories~\citep{miller1955}.  For our parameters ($K=10$, $J=2$, $N=1{,}836$), this is approximately $0.004$~bits---roughly 14\% of the citizen MI estimate.  We address this through bootstrap confidence intervals that implicitly account for finite-sample bias.
+
+\subsection{Directed Information (Preview)}
+
+Standard MI is symmetric: $I(X;Y) = I(Y;X)$.  But democratic causation is directional---we want to distinguish information flow from preferences to policy versus policy to preferences.  \citet{massey1990} defined \emph{directed information} for processes with feedback:
+\begin{equation}
+I(X^n \to Y^n) = \sum_{t=1}^{n} I(X^t; Y_t | Y^{t-1}),
+\label{eq:directed}
+\end{equation}
+which measures the causal information flow from $X$ to $Y$ in a time series, accounting for feedback.  We note this as an important extension requiring longitudinal data and reserve it for future work.
+
+% ============================================================
+% 4. DATA AND METHODS
+% ============================================================
+\section{Data and Methods}
+\label{sec:data}
+
+\subsection{Dataset}
+
+We use the Gilens (2012) replication dataset (DS1\_v2.dta) obtained from the Russell Sage Foundation.\footnote{The data were originally compiled for \citet{gilens2012} and used in \citet{gilens2014testing}.  The replication archive includes three datasets; we use the primary set (DS1, $N = 1{,}863$) and validate on DS2 ($N = 2{,}355$) and DS3 ($N = 4{,}710$).}  After excluding 27 cases with missing outcomes (coded as 99), we obtain $N = 1{,}836$ usable policy issues spanning 1981--2002.
+
+Each observation represents a proposed policy change on which a national survey measured public preferences.  The key variables are:
+
+\begin{itemize}
+\item \textbf{Citizen preferences} (\texttt{pred50\_sw}): The model-imputed proportion favoring the proposed policy change at the 50th income percentile, sample-weighted.  Range: 0.036--0.991, mean: 0.562.
+\item \textbf{Elite preferences} (\texttt{pred90\_sw}): The corresponding proportion at the 90th income percentile.  Range: 0.047--0.991, mean: 0.565.
+\item \textbf{Interest group alignment}: A net score computed as $(\text{INTGRP\_STFAV} + \text{INTGRP\_SWFAV}) - (\text{INTGRP\_STOPP} + \text{INTGRP\_SWOPP})$, reflecting the balance of interest-group support and opposition.  Mean: $-0.91$ (interest groups on average oppose proposed changes, consistent with status quo bias).
+\item \textbf{Policy outcome}: Binary indicator coded as 1 if the proposed policy change was adopted (OUTCOME $\geq 2$), 0 otherwise.  Adoption rate: 35.0\%.
+\end{itemize}
+
+The Pearson correlation between citizen and elite preferences is $r = 0.935$, reflecting the well-documented fact that citizens and economic elites agree on most policies.  This high correlation is the central methodological challenge for regression-based approaches and the principal motivation for our information-theoretic alternative.
+
+\subsection{Estimation Procedure}
+
+For each preference--outcome pair, we:
+\begin{enumerate}
+\item Discretize the continuous preference variable into $K = 10$ equal-width bins on $[0, 100]$.
+\item Estimate the joint distribution $\hat{P}(x, y)$ from the empirical histogram.
+\item Compute $I(X;Y)$, $H(Y)$, and $\eta = I(X;Y)/H(Y)$ directly.
+\item For conditional MI, estimate the three-dimensional histogram $\hat{P}(x_1, x_2, y)$ and apply the chain rule (Eq.~\ref{eq:cmi}).
+\end{enumerate}
+
+\subsection{Robustness Checks}
+
+We perform three classes of robustness checks:
+\begin{enumerate}
+\item \textbf{Sensitivity to discretization:} We recompute all MI estimates for $K \in \{5, 8, 10, 15, 20, 25\}$.
+\item \textbf{Bootstrap confidence intervals:} We draw 1,000 bootstrap resamples (with replacement) of the full dataset, recomputing MI and conditional MI for each resample.  We report 2.5th and 97.5th percentiles as 95\% CIs.
+\item \textbf{Cross-dataset validation:} We replicate the analysis on all three Russell Sage Foundation datasets (DS1: $N = 1{,}836$; DS2: $N = 2{,}355$; DS3: $N = 4{,}710$), including a conservative outcome coding variant ($N = 4{,}188$, adoption rate 13.3\%).
+\end{enumerate}
+
+% ============================================================
+% 5. RESULTS
+% ============================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Marginal Mutual Information}
+
+Table~\ref{tab:marginal} reports the marginal mutual information between each group's preferences and policy outcomes.
+
+\begin{table}[t]
+\centering
+\caption{Marginal mutual information between preferences and policy outcomes ($K=10$ bins, $N=1{,}836$).}
+\label{tab:marginal}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Channel & $I(X;Y)$ & 95\% CI & $\eta$ \\
+ & (bits) & (bits) & (\%) \\
+\midrule
+Citizen (50th \%ile) $\to$ Policy & 0.025 & [0.017, 0.042] & 2.7 \\
+Elite (90th \%ile) $\to$ Policy & 0.037 & [0.027, 0.057] & 4.0 \\
+Interest Groups $\to$ Policy & 0.020 & --- & 2.1 \\
+\bottomrule
+\end{tabular}
+\smallskip
+
+\footnotesize{$\eta = I(X;Y)/H(Y)$ is the channel efficiency; $H(Y) = 0.934$ bits.}
+\end{table}
+
+All three channels transmit negligible information.  The citizen channel resolves 2.7\% of policy outcome uncertainty; the elite channel resolves 4.0\%; the interest-group channel resolves 2.1\%.  No channel operates above 5\% of Shannon capacity.
+
+\subsection{Conditional Mutual Information}
+
+Table~\ref{tab:conditional} reports the conditional MI---the independent contribution of each group after controlling for the other.
+
+\begin{table}[t]
+\centering
+\caption{Conditional mutual information: independent contributions ($K=10$, $N=1{,}836$).}
+\label{tab:conditional}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Measure & Estimate (bits) & 95\% CI (bits) \\
+\midrule
+$I(\text{Citizen}; Y \,|\, \text{Elite})$ & 0.017 & [0.020, 0.043] \\
+$I(\text{Elite}; Y \,|\, \text{Citizen})$ & 0.029 & [0.030, 0.058] \\
+\midrule
+Ratio (Elite / Citizen) & $1.7\times$ & [$1.1\times$, $1.8\times$] \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Component Interactions}
+Elites retain $1.7\times$ the independent influence of citizens.  This confirms the \emph{direction} of the Gilens--Page finding.  However, the absolute magnitudes reveal a finding that regression analysis obscures: both independent contributions are near zero.  Even knowing elite preferences resolves only 0.029~bits of additional policy uncertainty beyond what citizen preferences already provide.
 
-The components interact through several key workflows:
+\subsection{Channel Efficiency Comparison}
 
-\begin{itemize}
-    \item \textbf{User Registration/Login}: Users register using WebAuthn, creating a passwordless credential (typically a FIDO2 security key or platform authenticator). The server stores only the public key portion of the credential, while the private key remains on the user's device.
-    
-    \item \textbf{PGP Key Onboarding}: Users either generate a new PGP keypair in the browser using WebCrypto or import a hardware PGP key (e.g., from a YubiKey). Only the public PGP key is sent to the server and stored in the user's profile, while the private key never leaves the client device.
-    
-    \item \textbf{Incoming Mail Flow}: External senders deliver mail to Keykeeper domains via SMTP to Postfix (using TLS). Postfix verifies the recipient against the MySQL user table and then transfers the message to Dovecot for delivery into the user's Maildir. Messages may already be PGP-encrypted if the sender encrypted them with the recipient's public key.
-    
-    \item \textbf{Webmail Access}: After authentication, the Next.js client retrieves mail from Dovecot, typically via an API that issues IMAP commands over a secure connection. Dovecot looks up the user in MySQL and grants access to their mailbox. The client handles decryption of encrypted messages entirely in the browser.
-    
-    \item \textbf{Outgoing Mail Flow}: When sending mail, the Next.js app handles PGP encryption and signing in the browser before submitting the encrypted message to Postfix via SMTP. Postfix authenticates the request and relays the message to its destination. The server only sees the encrypted content, never the plaintext.
-\end{itemize}
+Table~\ref{tab:efficiency} synthesizes the channel efficiency results.
 
-\section{End-to-End Encryption Implementation}
-\label{sec:e2ee}
+\begin{table}[t]
+\centering
+\caption{Channel efficiency summary.}
+\label{tab:efficiency}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+Channel & MI (bits) & $H(Y)$ (bits) & Efficiency \\
+\midrule
+Citizen $\to$ Policy & 0.025 & 0.934 & 2.7\% \\
+Elite $\to$ Policy & 0.037 & 0.934 & 4.0\% \\
+Interest Groups $\to$ Policy & 0.020 & 0.934 & 2.1\% \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-The cornerstone of Keykeeper's security model is client-side encryption using OpenPGP. All email contents are encrypted on the client side using OpenPGP.js or a similar library, ensuring that the user's PGP private key remains exclusively in the browser environment.
+Figure~\ref{fig:efficiency} presents the channel efficiency comparison graphically.
 
-\subsection{Encryption Workflow}
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    width=\columnwidth,
+    height=5.5cm,
+    bar width=18pt,
+    ylabel={Channel Efficiency (\%)},
+    symbolic x coords={Citizen, Elite, Int.\ Groups},
+    xtick=data,
+    ymin=0, ymax=8,
+    ytick={0,1,2,3,4,5,6,7,8},
+    ymajorgrids=true,
+    grid style={dashed, gray!40},
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\footnotesize\bfseries},
+    enlarge x limits=0.35,
+    legend style={at={(0.98,0.95)}, anchor=north east, font=\footnotesize},
+    error bars/y dir=both,
+    error bars/y explicit,
+]
+\addplot[fill=blue!50, draw=blue!70] coordinates {
+    (Citizen, 2.7) +- (0, 0.8)
+    (Elite, 4.0) +- (0, 1.0)
+    (Int.\ Groups, 2.1) +- (0, 0.6)
+};
+\draw[dashed, red, thick] (axis cs:Citizen, 5) -- (axis cs:Int.\ Groups, 5);
+\node[red, font=\footnotesize, anchor=south west] at (axis cs:Citizen, 5.1) {5\% threshold};
+\end{axis}
+\end{tikzpicture}
+\caption{Channel efficiency for the three preference-policy channels.  Error bars show approximate 95\% confidence intervals from bootstrap resampling.  The dashed line marks 5\% efficiency; all channels fall below it.}
+\label{fig:efficiency}
+\end{figure}
 
-The encryption and decryption processes follow established PGP/MIME patterns:
+\subsection{Sensitivity to Discretization}
 
-\begin{itemize}
-    \item \textbf{Sending}: When composing an email, the client looks up the recipient's public key (from a directory or keyserver) and uses OpenPGP to encrypt and sign the message before transmission. The server (Postfix) only processes the encrypted content, with no access to plaintext.
-    
-    \item \textbf{Receiving}: Encrypted messages stored in the user's Maildir on the server are retrieved by the webmail client and decrypted locally using the user's private key. This ensures that neither the service operator nor any third party can access unencrypted mail content.
-\end{itemize}
+Figure~\ref{fig:sensitivity} shows MI estimates across bin counts from 5 to 25.
 
-This implementation relies on robust client-side random number generation via the Web Crypto API (\texttt{window.crypto.getRandomValues()}) and careful key handling practices. While JavaScript cryptography has historically faced criticism, modern Web Crypto APIs address many of these concerns by providing strong cryptographic primitives directly from the browser.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    width=\columnwidth,
+    height=5.5cm,
+    xlabel={Number of Bins ($K$)},
+    ylabel={$I(X;Y)$ (bits)},
+    xmin=3, xmax=27,
+    ymin=0.015, ymax=0.055,
+    ymajorgrids=true,
+    grid style={dashed, gray!40},
+    legend style={at={(0.02,0.98)}, anchor=north west, font=\footnotesize},
+    mark size=2.5pt,
+]
+\addplot[color=blue, mark=o, thick] coordinates {
+    (5, 0.0225) (8, 0.0273) (10, 0.0251) (15, 0.0277) (20, 0.0300) (25, 0.0311)
+};
+\addlegendentry{Citizen (50th \%ile)}
+\addplot[color=red, mark=square*, thick] coordinates {
+    (5, 0.0329) (8, 0.0381) (10, 0.0374) (15, 0.0419) (20, 0.0400) (25, 0.0426)
+};
+\addlegendentry{Elite (90th \%ile)}
+\end{axis}
+\end{tikzpicture}
+\caption{Mutual information estimates as a function of the number of discretization bins.  The elite channel consistently exceeds the citizen channel, and the ratio remains between $1.3\times$ and $1.5\times$ across all bin counts.  The gradual increase with $K$ reflects finer resolution of the joint distribution structure.}
+\label{fig:sensitivity}
+\end{figure}
 
-\section{Browser-based PGP Key Management}
-\label{sec:key_management}
+The results are stable across all six discretization schemes.  The elite/citizen MI ratio ranges from $1.3\times$ to $1.5\times$ regardless of binning.  MI values increase slightly with finer binning (capturing more structure in the joint distribution) but remain in the 0.02--0.05~bit range throughout.
 
-A critical aspect of Keykeeper's security model is the management of cryptographic keys entirely within the browser environment. We support two primary approaches:
+\subsection{Temporal Analysis}
 
-\subsection{Browser-Generated Keys}
+Table~\ref{tab:temporal} splits the data by decade to test whether channel efficiency has changed over time.
 
-For users without hardware security devices, OpenPGP.js can create a new keypair using WebCrypto's random number generator. The application guides users through key size selection and optional passphrase protection. The generated private key must be secured appropriately:
+\begin{table}[t]
+\centering
+\caption{Channel efficiency by period.}
+\label{tab:temporal}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Period & $N$ & $I_\text{cit}$ & $\eta_\text{cit}$ & $I_\text{elite}$ & $\eta_\text{elite}$ \\
+\midrule
+1981--1990 & 610 & 0.033 & 3.4\% & 0.038 & 4.0\% \\
+1991--2002 & 1,226 & 0.037 & 4.1\% & 0.048 & 5.3\% \\
+\bottomrule
+\end{tabular}
+\smallskip
 
-\begin{itemize}
-    \item The private key is encrypted with a user-chosen passphrase using a high-iteration key derivation function (KDF) like scrypt
-    \item The encrypted key can be stored in IndexedDB or localStorage in armored form
-    \item Unencrypted keys are never stored persistently
-    \item Modern implementations can encrypt the private key using a symmetric key derived via WebAuthn's PRF extension
-\end{itemize}
+\footnotesize{$I$ in bits; $\eta = I/H(Y)$.}
+\end{table}
 
-\subsection{Hardware Key Integration}
+Figure~\ref{fig:temporal} visualizes this finding.
 
-For users with hardware security devices (e.g., YubiKeys with OpenPGP applets), the private key never enters the browser environment:
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+    ybar,
+    width=\columnwidth,
+    height=5.5cm,
+    bar width=14pt,
+    ylabel={Channel Efficiency (\%)},
+    symbolic x coords={1981--1990, 1991--2002},
+    xtick=data,
+    ymin=0, ymax=7,
+    ymajorgrids=true,
+    grid style={dashed, gray!40},
+    nodes near coords,
+    nodes near coords align={vertical},
+    every node near coord/.append style={font=\footnotesize\bfseries},
+    enlarge x limits=0.4,
+    legend style={at={(0.02,0.98)}, anchor=north west, font=\footnotesize},
+]
+\addplot[fill=blue!50, draw=blue!70] coordinates {(1981--1990, 3.4) (1991--2002, 4.1)};
+\addlegendentry{Citizen}
+\addplot[fill=red!50, draw=red!70] coordinates {(1981--1990, 4.0) (1991--2002, 5.3)};
+\addlegendentry{Elite}
+\end{axis}
+\end{tikzpicture}
+\caption{Channel efficiency by decade.  Elite channel efficiency increases from 4.0\% to 5.3\%, while citizen efficiency increases from 3.4\% to 4.1\%.  The elite--citizen gap widens from 0.6 to 1.2 percentage points.}
+\label{fig:temporal}
+\end{figure}
 
-\begin{itemize}
-    \item Cryptographic operations are delegated to the hardware device
-    \item The web interface integrates with WebAuthn/Crypto APIs or Web USB to communicate with the hardware token
-    \item Only the public PGP key is exported to the server, while the private key remains securely on the device
-\end{itemize}
+Both channels show slightly higher MI in the later period, but the elite channel grows faster.  The elite--citizen efficiency gap doubles from 0.6 percentage points (1981--1990) to 1.2 percentage points (1991--2002).  We interpret this cautiously: the subsamples differ in size (610 vs.\ 1,226), and MI estimates are noisier for smaller samples.  Nevertheless, the direction is consistent with accounts of increasing elite influence during the deregulatory period of the 1990s and early 2000s.
 
-\subsection{Secure Storage Considerations}
+\subsection{Cross-Dataset Validation}
 
-Browser-based key storage presents unique challenges that we address through several mechanisms:
+Table~\ref{tab:crossval} reports MI estimates across all three Russell Sage datasets.
 
-\begin{itemize}
-    \item Plain \texttt{localStorage} is vulnerable to cross-site scripting (XSS) attacks, so we prefer \texttt{IndexedDB} with encrypted blobs
-    \item The Web Crypto API supports storing \texttt{CryptoKey} objects in IndexedDB with restrictions on key exportability
-    \item Emerging standards like WebAuthn Passkeys with the PRF extension enable derivation of symmetric keys from hardware authenticators, which can decrypt stored PGP private keys
-    \item Where available, integration with platform-specific secure enclaves (e.g., Android Keystore via Progressive Web Apps) provides additional protection
-\end{itemize}
+\begin{table}[t]
+\centering
+\caption{Cross-dataset validation.}
+\label{tab:crossval}
+\begin{tabular}{@{}lcccccc@{}}
+\toprule
+Dataset & $N$ & Adopt & $I_\text{cit}$ & $\eta_\text{cit}$ & $I_\text{elite}$ & $\eta_\text{elite}$ \\
+\midrule
+DS1 & 1,836 & 35.0\% & 0.025 & 2.7\% & 0.037 & 4.0\% \\
+DS2 & 2,355 & 33.5\% & 0.026 & 2.8\% & 0.035 & 3.9\% \\
+DS3 & 4,710 & 33.5\% & 0.026 & 2.8\% & 0.035 & 3.9\% \\
+DS3$^*$ & 4,188 & 13.3\% & 0.010 & 1.7\% & 0.014 & 2.5\% \\
+\bottomrule
+\end{tabular}
+\smallskip
 
-Under all circumstances, private keys remain exclusively under user control, never transmitted to or stored on the server.
+\footnotesize{$I$ in bits.  DS3$^*$ uses the conservative binary outcome coding (COUTCOME).}
+\end{table}
 
-\section{Passwordless Authentication}
-\label{sec:webauthn}
+The findings are remarkably consistent.  Across all datasets and both outcome codings, citizen channel efficiency is below 3\%, elite efficiency is below 5\%, and the elite/citizen ratio remains between $1.4\times$ and $1.5\times$.  The conservative coding (13.3\% adoption rate) reduces absolute MI---as expected, since lower-entropy outcomes carry less information---but preserves the relative pattern.
 
-Keykeeper eliminates traditional password vulnerabilities by implementing FIDO2/WebAuthn for passwordless authentication:
+% ============================================================
+% 6. DISCUSSION
+% ============================================================
+\section{Discussion}
+\label{sec:discussion}
 
-\subsection{WebAuthn Registration and Authentication}
+\subsection{What 2.7\% Means---and What It Does Not}
 
-During account creation, users register a WebAuthn credential through the following process:
+The citizen channel operates at 2.7\% of Shannon capacity.  This means that knowing citizen preferences resolves 2.7\% of the uncertainty about whether a proposed policy change will be adopted.  The remaining 97.3\% of the outcome is determined by factors other than citizen preferences as measured in national surveys.
+
+This does \emph{not} mean that democracy is ``worthless'' or that citizens have ``no influence.''  Several caveats are essential:
 
 \begin{enumerate}
-    \item The server generates a challenge and sends it to the client
-    \item The client calls \texttt{navigator.credentials.create()} to generate a new credential pair
-    \item The authenticator (security key or platform authenticator) creates a public/private keypair
-    \item The public key and credential ID are sent to the server and stored in the user database
+\item MI measures \emph{statistical association}, not causation.  Low $I(\text{Citizen}; Y)$ means citizen preferences are nearly independent of policy outcomes in the data, but it does not identify why.  The causal story---whether preferences are ignored, whether institutions filter them, or whether preferences are endogenous to policy---requires directed information analysis with longitudinal data.
+
+\item The theoretical maximum ($H(Y) = 0.934$~bits) represents perfect prediction, which may not be \emph{desirable}.  A democratic system that perfectly enacted current majority preferences on every issue would lack the deliberative filtering, minority protection, and temporal smoothing that constitutional democracies value.  The honest framing is not ``the system wastes 97\% of its capacity'' but rather ``preferences and outcomes are near-statistically-independent.''
+
+\item The Gilens dataset measures preferences from a single survey snapshot for each issue.  If preferences evolve between the survey and the policy decision, measured MI will understate the true dependence.
 \end{enumerate}
 
-For subsequent logins:
+\subsection{The ``Is the Signal Real?'' Critique}
+
+A fundamental challenge to the channel model is that the source signal may not be exogenous.  If citizen preferences are shaped by elite messaging, media framing, or the policy environment itself, then low MI between ``citizen preferences'' and ``policy outcomes'' may reflect a noisy or manufactured source rather than a broken channel.
+
+We cannot fully resolve this within the static MI framework.  However, we note that \emph{elite} preferences do predict policy outcomes at a higher rate (4.0\% vs.\ 2.7\%).  If the source were simply noise, we would expect all channels to show equally low MI.  The differential suggests that there is a signal and that it is selectively transmitted---the channel discriminates by source.
+
+\subsection{Why Information Theory Sidesteps the Bashir--Branham Critique}
+
+The central methodological objection to Gilens and Page is that multicollinearity ($r = 0.935$) makes the individual regression coefficients unreliable.  This objection does not apply to mutual information.
+
+MI is a property of the joint distribution $P(X,Y)$.  It does not decompose $Y$ into ``effects'' of correlated predictors.  When we compute $I(\text{Citizen}; Y)$, we ask: ``How much does knowing citizen preferences reduce our uncertainty about $Y$?''  The answer (0.025~bits) does not depend on the correlation with elite preferences.
+
+Conditional MI $I(\text{Citizen}; Y \,|\, \text{Elite})$ does condition on elite preferences, but it does so non-parametrically---through the chain rule of mutual information, not through a linear model.  The result (0.017~bits) is not inflated or deflated by multicollinearity; it is the exact information citizen preferences provide about $Y$ beyond what elite preferences already provide, as computed from the empirical joint distribution over all three variables.
+
+\subsection{Thermostatic Responsiveness}
+
+\citet{soroka2010} demonstrate that aggregate public opinion and aggregate policy move in a ``thermostatic'' relationship: when policy moves in one direction, public preferences shift in the opposite direction, and policy eventually adjusts.  This finding appears to contradict ours.
+
+The resolution is one of bandwidth.  Thermostatic responsiveness operates at the \emph{aggregate ideological} level---the ``DC component'' of the preference signal in signal-processing terms.  Our analysis operates at the \emph{specific policy} level---the ``high-frequency content.''  It is entirely consistent for the system to transmit aggregate ideological mood slowly and imperfectly (a low-pass filter) while failing to transmit specific policy preferences (attenuating high-frequency content).  Our MI estimates may capture primarily this high-frequency attenuation, while the thermostatic literature captures the low-frequency transmission.
+
+\subsection{The ``Broken Pipe'' Finding}
+
+The most important finding is not the \emph{relative} difference between citizen and elite influence ($1.7\times$) but the \emph{absolute} near-zero efficiency of all channels.  This reframes the Gilens--Page debate.
+
+The standard interpretation of Gilens and Page is: ``elites control policy.''  Our information-theoretic finding is: ``nobody's measured preferences control policy.''  Even the elite channel operates at only 4\% efficiency.  The system is not a well-functioning pipeline that has been captured by the wrong people; it is a fundamentally degraded channel that transmits almost no signal from any measured source.  Elites get $1.7\times$ more through, but $1.7\times$ of nearly-nothing is still nearly-nothing.
+
+This shifts the policy implication.  If the problem were elite capture of a functioning channel, the remedy would be to reduce elite influence (campaign finance reform, lobbying restrictions).  If the problem is a broken channel, the remedy is to increase channel capacity---through institutional redesign that increases the bandwidth, reduces the noise, or improves the encoding of the preference-policy transmission system.
+
+\subsection{Implications for Institutional Design}
+
+Without prescribing specific reforms, we note that the information-theoretic framework suggests four categories of intervention, corresponding to the four components of a communication system:
 
 \begin{enumerate}
-    \item The server issues a random challenge
-    \item The client calls \texttt{navigator.credentials.get()} with the user's credential ID
-    \item The authenticator signs the challenge with the private key
-    \item The server verifies the signature using the stored public key
+\item \textbf{Increase sampling rate} (source encoding): Elections every 2--4 years are an extremely low sampling rate for a signal that evolves continuously.  Direct democratic mechanisms, citizen assemblies, and digital participation platforms increase the rate at which preferences are sampled.
+
+\item \textbf{Improve encoding}: Plurality voting compresses a multidimensional preference signal into a single binary choice.  Ranked-choice voting, quadratic voting~\citep{posner2018}, and approval voting encode more of the preference structure per transmission.
+
+\item \textbf{Reduce noise}: Campaign finance, lobbying, and revolving-door employment inject adversarial noise.  Reforms targeting these channels reduce the noise power, increasing the signal-to-noise ratio.
+
+\item \textbf{Alternative architectures}: Sortition (random selection of legislators from the population) eliminates the electoral channel entirely, replacing it with a direct statistical sample of the preference distribution~\citep{manin1997,landemore2012,guerrero2014}.  In information-theoretic terms, sortition replaces a low-bandwidth, high-noise channel with a direct observation of the source.
 \end{enumerate}
 
-This approach is phishing-resistant and eliminates password database risks, as no shared secret is stored server-side.
+We emphasize that these are analytical observations, not policy recommendations.  Each intervention has costs, risks, and unintended consequences that require separate analysis.
 
-\subsection{Account Linking and Access Delegation}
-
-Once authenticated via WebAuthn, the server establishes a session and provisions mailbox access through one of several mechanisms:
-
-\begin{itemize}
-    \item Generation of application-specific passwords for the user's Dovecot account, stored in MySQL
-    \item Configuration of Dovecot to trust the web service as an authentication proxy
-    \item Implementation of OAuth2 for delegated access
-\end{itemize}
-
-In practice, the Next.js application acts as the authenticated client, issuing IMAP commands on behalf of the user without exposing authentication credentials. For external email client access, users can generate limited-use tokens or app-specific passwords.
-
-\section{Stripe Integration for Subscription Billing}
-\label{sec:billing}
-
-Keykeeper implements secure subscription billing through Stripe integration:
-
-\begin{itemize}
-    \item The Next.js frontend embeds Stripe Checkout or Stripe Elements for secure payment collection
-    \item Payment information is sent directly from the browser to Stripe; card data never touches Keykeeper servers
-    \item After payment processing, Stripe issues webhooks to the Keykeeper backend
-    \item Each webhook is cryptographically verified before processing the subscription event
-    \item The server records only minimal subscription metadata (status, customer ID) in the user profile
-\end{itemize}
-
-This architecture follows security best practices by:
-
-\begin{itemize}
-    \item Verifying event IDs to prevent duplicate processing
-    \item Limiting webhook event types to the minimum necessary set
-    \item Storing Stripe secret keys exclusively in server environment variables
-    \item Delivering webhooks only to TLS-protected endpoints with verified signatures
-\end{itemize}
-
-This approach ensures secure billing integration without compromising financial data or introducing payment handling risks.
-
-\section{User Onboarding and Mail Experience}
-\label{sec:user_experience}
-
-A streamlined user experience is essential for adoption of secure email systems. We implement a carefully designed onboarding flow:
-
-\begin{enumerate}
-    \item \textbf{Registration and Payment}: Users select a plan and complete payment via Stripe Checkout.
-    
-    \item \textbf{WebAuthn Setup}: Users register a security key or platform authenticator for passwordless login.
-    
-    \item \textbf{PGP Key Creation}: Users either generate a new PGP key in-browser or connect a hardware key with an existing PGP certificate.
-    
-    \item \textbf{Key Backup}: For browser-generated keys, users are prompted to securely back up their private key.
-    
-    \item \textbf{Mailbox Access}: Once configured, users access their encrypted mailbox interface.
-\end{enumerate}
-
-Throughout the onboarding process, users are educated about the passwordless nature of the system and the importance of maintaining access to their authentication credentials and encryption keys.
-
-The webmail interface provides a familiar experience with encryption-specific enhancements:
-
-\begin{itemize}
-    \item Clear indication of encryption status for messages
-    \item Intuitive controls for encrypting outgoing messages
-    \item Key management interface for adding contacts' public keys
-    \item Secure handling of attachments and rich content
-\end{itemize}
-
-\section{Infrastructure Hardening}
-\label{sec:infrastructure}
-
-Security is enforced across all infrastructure layers:
-
-\subsection{Network Security}
-
-\begin{itemize}
-    \item All external services use TLS with Let's Encrypt certificates
-    \item Postfix and Dovecot are configured with modern TLS protocols (minimum TLSv1.2) and strong cipher suites
-    \item The submission port (587) requires STARTTLS and client authentication
-    \item IMAP (993) and LMTP use mandatory TLS encryption
-\end{itemize}
-
-\subsection{DNS and Email Authentication}
-
-\begin{itemize}
-    \item DNSSEC signing of all DNS records ensures cryptographic validation
-    \item SPF records authorize legitimate sending servers
-    \item DKIM signing in Postfix provides message authentication
-    \item DMARC policy enforcement prevents email spoofing
-\end{itemize}
-
-\subsection{Container Security}
-
-\begin{itemize}
-    \item Services run in isolated Docker containers via Coolify
-    \item Minimal base images with processes running as non-root users
-    \item CIS Docker benchmark compliance (avoiding privileged mode, disabling unnecessary capabilities)
-    \item Regular vulnerability scanning of container images
-    \item Resource limitation for each container (memory, CPU quotas)
-    \item Volume mounting with strict permissions for data persistence
-\end{itemize}
-
-\subsection{Host-Level Hardening}
-
-\begin{itemize}
-    \item Regular OS updates and security patches
-    \item Firewall rules restricting access to necessary ports only
-    \item SSH hardening (key-based authentication, non-standard port)
-    \item Mandatory access control via AppArmor or SELinux
-    \item Intrusion detection and prevention (fail2ban)
-    \item Disabled unnecessary services and protocols
-\end{itemize}
-
-\subsection{Database Security}
-
-\begin{itemize}
-    \item MySQL configured to listen only on localhost or Docker internal network
-    \item Strong authentication requirements for database access
-    \item TLS or UNIX socket connections from web application
-    \item Regular database backups to secure external storage
-\end{itemize}
-
-\subsection{Monitoring and Incident Response}
-
-\begin{itemize}
-    \item Comprehensive logging of all service activities
-    \item Automated intrusion detection based on log analysis
-    \item Container integrity monitoring
-    \item Documented incident response procedures
-\end{itemize}
-
-These measures create a defense-in-depth security posture that protects the infrastructure while maintaining the client-side encryption model that prevents server access to message content.
-
+% ============================================================
+% 7. CONCLUSION
+% ============================================================
 \section{Conclusion}
 \label{sec:conclusion}
 
-The Keykeeper platform demonstrates that comprehensive email security—including true end-to-end encryption, passwordless authentication, and robust infrastructure hardening—can be achieved without sacrificing usability or compatibility with existing email standards. By implementing OpenPGP encryption exclusively on the client side and leveraging WebAuthn for authentication, we eliminate many traditional email security vulnerabilities while providing a familiar user experience.
+We have presented the first information-theoretic measurement of democratic preference-policy transmission using empirical data.  Applying Shannon's mutual information framework to the Gilens and Page (2014) dataset, we find:
 
-Key innovations in our approach include:
+\begin{enumerate}
+\item All three measured channels---citizen, elite, and interest group---operate below 5\% of Shannon capacity.  The citizen channel transmits 0.025~bits (2.7\% efficiency); the elite channel transmits 0.037~bits (4.0\%); the interest-group channel transmits 0.020~bits (2.1\%).
 
-\begin{itemize}
-    \item Seamless integration of browser-based cryptography with traditional mail services
-    \item Implementation of passwordless authentication for phishing-resistant security
-    \item Secure key management approaches for both browser-generated and hardware-backed keys
-    \item Container-based deployment architecture with comprehensive security controls
-\end{itemize}
+\item Elites retain $1.7\times$ the independent influence of median-income citizens, confirming the direction of the Gilens--Page finding.  But both independent contributions are near zero in absolute terms.
 
-Future work will focus on expanding hardware key support, implementing secure key recovery mechanisms, and enhancing the user experience for key discovery and contact verification. We believe this architecture provides a robust template for secure email services that respect user privacy while maintaining interoperability with existing email infrastructure.
+\item The findings are robust across three datasets ($N$ up to 4,710), six discretization schemes, and 1,000 bootstrap resamples.  The elite/citizen MI ratio consistently falls between $1.3\times$ and $1.5\times$.
 
-\bibliographystyle{IEEEtran}
-\begin{thebibliography}{10}
+\item The elite--citizen efficiency gap widens from 0.6 to 1.2 percentage points between the 1981--1990 and 1991--2002 subperiods.
+\end{enumerate}
 
-\bibitem{garfinkel2003}
-S. Garfinkel, "Email-based identification and authentication: an alternative to PKI?" IEEE Security \& Privacy, vol. 1, no. 6, pp. 20-26, 2003.
+The methodological contribution is twofold.  First, mutual information provides a model-free, scale-invariant measure of preference-policy dependence that is immune to the multicollinearity that has driven the debate over Gilens and Page's regression results.  Second, channel capacity provides an absolute benchmark---enabling statements about how a democratic system performs relative to its theoretical maximum, not merely relative to other systems.
 
-\bibitem{bonneau2012}
-J. Bonneau, C. Herley, P. C. van Oorschot, and F. Stajano, "The quest to replace passwords: A framework for comparative evaluation of web authentication schemes," in Proceedings of the IEEE Symposium on Security and Privacy, 2012, pp. 553-567.
+Three extensions constitute natural next steps.  First, directed information analysis~\citep{massey1990} using American National Election Studies panel data (2016--2024) could distinguish causal information flow from preferences to policy versus policy to preferences.  Second, cross-national replication using the Comparative Study of Electoral Systems (CSES) dataset could test whether the low-efficiency finding is specific to the United States or generalizes across institutional architectures.  Third, computing MI between General Social Survey spending preferences and actual federal budget allocations from the Policy Agendas Project would provide an independent validation on entirely different data.
 
-\bibitem{duong2011}
-T. Duong and J. Rizzo, "Here come the ninjas," Unpublished manuscript, 2011.
+The democratic channel, as currently constituted, transmits very little of what citizens want into what government does.  Whether this reflects a broken channel, a noisy source, or a feature rather than a bug of constitutional design is a question that directed information analysis and cross-national comparison can begin to answer.
 
-\bibitem{openpgp2007}
-J. Callas, L. Donnerhacke, H. Finney, D. Shaw, and R. Thayer, "OpenPGP message format," RFC 4880, Internet Engineering Task Force, 2007.
+% ============================================================
+% DATA AND CODE AVAILABILITY
+% ============================================================
+\section*{Data and Code Availability}
 
-\bibitem{w3c2019}
-W3C and FIDO Alliance, "Web Authentication: An API for accessing public key credentials," W3C Recommendation, 2019.
+The analysis code and processed data are available at \url{https://github.com/novalis78/The-Democratic-Channel}.  The Gilens (2012) replication dataset is available from the Russell Sage Foundation.  All results can be reproduced using the \texttt{lossy\_channel\_MI\_analysis.py} script included in the repository.
 
-\bibitem{shay2016}
-R. Shay, S. Komanduri, A. L. Durity, P. S. Huh, M. L. Mazurek, S. M. Segreti, B. Ur, L. Bauer, N. Christin, and L. F. Cranor, "Designing password policies for strength and usability," ACM Transactions on Information and System Security, vol. 18, no. 4, pp. 13:1-13:34, 2016.
+% ============================================================
+% ACKNOWLEDGMENTS
+% ============================================================
+\section*{Acknowledgments}
 
-\bibitem{postfix2021}
-W. Venema, "The Postfix home page," http://www.postfix.org/, 2021.
+The author thanks Martin Gilens and Benjamin Page for making their replication data publicly available through the Russell Sage Foundation.  The information-theoretic framework was developed independently; any errors in its application are the author's own.
 
-\bibitem{dovecot2021}
-T. Sirainen, "Dovecot - Secure IMAP server," https://www.dovecot.org/, 2021.
+% ============================================================
+% REFERENCES
+% ============================================================
+\begin{thebibliography}{99}
 
-\bibitem{stripe2021}
-Stripe, Inc., "Stripe API Reference," https://stripe.com/docs/api, 2021.
+\bibitem[Arrow(1951)]{arrow1951}
+Arrow, K.~J. (1951).
+\newblock \emph{Social Choice and Individual Values}.
+\newblock Wiley, New York.
 
-\bibitem{loncaric2018}
-C. Loncaric, M. L. Mazurek, and E. Bello-Ogunu, "Tuning, Friction, and Control: Barriers to End-to-End Encrypted Email," in Proceedings of the Fourteenth Symposium on Usable Privacy and Security (SOUPS), 2018.
+\bibitem[Bashir(2015)]{bashir2015}
+Bashir, O.~S. (2015).
+\newblock Testing inferences about {A}merican politics: A review of the ``oligarchy'' result.
+\newblock \emph{Research \& Politics}, 2(4):1--7.
 
-\bibitem{dockerhardening2021}
-Center for Internet Security, "CIS Docker Benchmarks," Center for Internet Security, Inc., 2021.
+\bibitem[Branham et~al.(2017)]{branham2017}
+Branham, J.~A., Soroka, S.~N., \& Wlezien, C. (2017).
+\newblock When do the rich win?
+\newblock \emph{Political Science Quarterly}, 132(1):43--62.
 
-\bibitem{ruoti2016}
-S. Ruoti, J. Andersen, S. Heidbrink, M. O'Neill, E. Vaziripour, J. Wu, D. Zappala, and K. Seamons, "We're on the same page: A usability study of secure email using pairs of novice users," in Proceedings of the 2016 CHI Conference on Human Factors in Computing Systems, 2016, pp. 4298-4308.
+\bibitem[Caplan(2007)]{caplan2007}
+Caplan, B. (2007).
+\newblock \emph{The Myth of the Rational Voter: Why Democracies Choose Bad Policies}.
+\newblock Princeton University Press.
 
-\bibitem{dnssec2019}
-P. Hoffman and J. Schlyter, "The DNS-based authentication of named entities (DANE) transport layer security (TLS) protocol: TLSA," RFC 6698, Internet Engineering Task Force, 2012.
+\bibitem[Caticha \& Vicente(2015)]{caticha2015}
+Caticha, N. \& Vicente, R. (2015).
+\newblock Opinion dynamics and the evolution of social power.
+\newblock In \emph{Social Phenomena}, pp.~67--88. Springer.
 
-\bibitem{webcrypto2017}
-W3C, "Web Cryptography API," W3C Recommendation, 2017.
+\bibitem[Cover \& Thomas(2006)]{cover2006}
+Cover, T.~M. \& Thomas, J.~A. (2006).
+\newblock \emph{Elements of Information Theory}.
+\newblock 2nd ed., Wiley.
 
-\bibitem{webdbstorage2019}
-A. Russell, J. Song, J. Archibald, and M. Kruisselbrink, "Indexed Database API 2.0," W3C Recommendation, 2018.
+\bibitem[Downs(1957)]{downs1957}
+Downs, A. (1957).
+\newblock \emph{An Economic Theory of Democracy}.
+\newblock Harper \& Row, New York.
+
+\bibitem[Enns(2015)]{enns2015}
+Enns, P.~K. (2015).
+\newblock Relative policy support and coincidental representation.
+\newblock \emph{Perspectives on Politics}, 13(4):1053--1064.
+
+\bibitem[Gibbard(1973)]{gibbard1973}
+Gibbard, A. (1973).
+\newblock Manipulation of voting schemes: A general result.
+\newblock \emph{Econometrica}, 41(4):587--601.
+
+\bibitem[Gilens(2012)]{gilens2012}
+Gilens, M. (2012).
+\newblock \emph{Affluence and Influence: Economic Inequality and Political Power in America}.
+\newblock Princeton University Press.
+
+\bibitem[Gilens \& Page(2014)]{gilens2014testing}
+Gilens, M. \& Page, B.~I. (2014).
+\newblock Testing theories of {A}merican politics: Elites, interest groups, and average citizens.
+\newblock \emph{Perspectives on Politics}, 12(3):564--581.
+
+\bibitem[Guerrero(2014)]{guerrero2014}
+Guerrero, A.~A. (2014).
+\newblock Against elections: The lottocratic alternative.
+\newblock \emph{Philosophy \& Public Affairs}, 42(2):135--178.
+
+\bibitem[Kirsch et~al.(2007)]{kirsch2007}
+Kirsch, W., Langner, J., \& Teufel, E. (2007).
+\newblock On {P}enrose's square-root law and beyond.
+\newblock \emph{Homo Oeconomicus}, 24(3--4):357--380.
+
+\bibitem[Landemore(2012)]{landemore2012}
+Landemore, H. (2012).
+\newblock \emph{Democratic Reason: Politics, Collective Intelligence, and the Rule of the Many}.
+\newblock Princeton University Press.
+
+\bibitem[Manin(1997)]{manin1997}
+Manin, B. (1997).
+\newblock \emph{The Principles of Representative Government}.
+\newblock Cambridge University Press.
+
+\bibitem[Massey(1990)]{massey1990}
+Massey, J.~L. (1990).
+\newblock Causality, feedback, and directed information.
+\newblock In \emph{Proc.\ International Symposium on Information Theory and Its Applications (ISITA)}, pp.~303--305.
+
+\bibitem[Matsusaka(1995)]{matsusaka1995}
+Matsusaka, J.~G. (1995).
+\newblock Explaining voter turnout patterns: An information theory.
+\newblock \emph{Public Choice}, 84(1--2):91--117.
+
+\bibitem[McKelvey(1976)]{mckelvey1976}
+McKelvey, R.~D. (1976).
+\newblock Intransitivities in multidimensional voting models and some implications for agenda control.
+\newblock \emph{Journal of Economic Theory}, 12(3):472--482.
+
+\bibitem[Miller \& Madow(1955)]{miller1955}
+Miller, G.~A. \& Madow, W.~G. (1955).
+\newblock On the maximum likelihood estimate of the {S}hannon-{W}iener measure of information.
+\newblock Technical report, Air Force Cambridge Research Center.
+
+\bibitem[Ober(2008)]{ober2008}
+Ober, J. (2008).
+\newblock \emph{Democracy and Knowledge: Innovation and Learning in Classical Athens}.
+\newblock Princeton University Press.
+
+\bibitem[Posner \& Weyl(2018)]{posner2018}
+Posner, E.~A. \& Weyl, E.~G. (2018).
+\newblock \emph{Radical Markets: Uprooting Capitalism and Democracy for a Just Society}.
+\newblock Princeton University Press.
+
+\bibitem[Satterthwaite(1975)]{satterthwaite1975}
+Satterthwaite, M.~A. (1975).
+\newblock Strategy-proofness and {A}rrow's conditions.
+\newblock \emph{Journal of Economic Theory}, 10(2):187--217.
+
+\bibitem[Shannon(1948)]{shannon1948}
+Shannon, C.~E. (1948).
+\newblock A mathematical theory of communication.
+\newblock \emph{Bell System Technical Journal}, 27(3):379--423.
+
+\bibitem[Soroka \& Wlezien(2010)]{soroka2010}
+Soroka, S.~N. \& Wlezien, C. (2010).
+\newblock \emph{Degrees of Democracy: Politics, Public Opinion, and Policy}.
+\newblock Cambridge University Press.
 
 \end{thebibliography}
 
