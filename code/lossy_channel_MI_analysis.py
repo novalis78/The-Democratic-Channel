@@ -93,12 +93,22 @@ def compute_mutual_information(x_continuous, y_binary, n_bins=N_BINS):
     
     I(X;Y) = H(Y) - H(Y|X) = H(X) - H(X|Y) = H(X) + H(Y) - H(X,Y)
     
-    We discretize X into bins to estimate the joint distribution.
-    
+    We discretize X into equal-width bins on [0, 100] (the preference scale)
+    to estimate the joint distribution. For variables not on the [0, 100]
+    scale (e.g., interest_group net alignment), the caller can pass the
+    variable already rescaled, or this function falls back to equal-width
+    bins over the observed range when values fall outside [0, 100].
+
     Returns I(X;Y) in bits and normalized mutual information NMI.
     """
-    # Discretize continuous variable into bins
-    x_binned = pd.cut(x_continuous, bins=n_bins, labels=False)
+    x_arr = pd.Series(x_continuous).astype(float)
+    # Equal-width bins on [0, 100] when the variable is a preference (%)
+    # Otherwise (e.g., interest_group net count), use observed-range bins
+    if (x_arr.dropna() >= 0).all() and (x_arr.dropna() <= 100).all():
+        edges = np.linspace(0, 100, n_bins + 1)
+        x_binned = pd.cut(x_arr, bins=edges, labels=False, include_lowest=True)
+    else:
+        x_binned = pd.cut(x_arr, bins=n_bins, labels=False)
     
     # Remove NaN from binning edge cases
     mask = ~np.isnan(x_binned)
@@ -142,8 +152,10 @@ def compute_conditional_mi(x1, x2, y, n_bins=N_BINS):
     This is the key test: I(citizen;policy|elite) ≈ 0
     means citizens have no INDEPENDENT influence.
     """
-    x1_binned = pd.cut(x1, bins=n_bins, labels=False)
-    x2_binned = pd.cut(x2, bins=n_bins, labels=False)
+    # Equal-width bins on [0, 100] preference range
+    edges = np.linspace(0, 100, n_bins + 1)
+    x1_binned = pd.cut(x1, bins=edges, labels=False, include_lowest=True)
+    x2_binned = pd.cut(x2, bins=edges, labels=False, include_lowest=True)
     
     mask = ~(np.isnan(x1_binned) | np.isnan(x2_binned))
     x1_b = x1_binned[mask].astype(int)
@@ -412,12 +424,24 @@ def run_analysis():
     print(f"\n  I(Citizen; Policy | Elite) = {cmi_citizen:.4f}  95% CI [{lo_cc:.4f}, {hi_cc:.4f}]")
     print(f"  I(Elite; Policy | Citizen) = {cmi_elite:.4f}  95% CI [{lo_ce:.4f}, {hi_ce:.4f}]")
 
-    ratio_boot = [e / c if c > 0.0001 else float('inf')
-                  for e, c in zip(boot_cmi_elite, boot_cmi_citizen)]
-    ratio_finite = [r for r in ratio_boot if r < float('inf')]
-    if ratio_finite:
-        lo_r, hi_r = ci(ratio_finite)
-        print(f"\n  Elite/Citizen independent MI ratio: 95% CI [{lo_r:.1f}x, {hi_r:.1f}x]")
+    # Elite/Citizen comparison — two reporting strategies because the
+    # ratio is unstable when citizen CMI is near zero.
+    boot_diff = [e - c for e, c in zip(boot_cmi_elite, boot_cmi_citizen)]
+    lo_d, hi_d = ci(boot_diff)
+    print(f"\n  Elite - Citizen CMI difference: median {np.median(boot_diff):+.4f}"
+          f"  95% CI [{lo_d:+.4f}, {hi_d:+.4f}] bits")
+
+    # Ratio with a floor at 1e-4 bits to avoid division-by-zero. We CAP
+    # rather than DROP near-zero citizen CMI resamples; dropping biases
+    # the CI downward by excluding extreme elite-advantage draws.
+    ratio_boot_capped = [e / max(c, 1e-4)
+                         for e, c in zip(boot_cmi_elite, boot_cmi_citizen)]
+    floored = sum(1 for c in boot_cmi_citizen if c < 1e-4)
+    lo_r, hi_r = ci(ratio_boot_capped)
+    print(f"  Elite/Citizen CMI ratio (capped):  median {np.median(ratio_boot_capped):.1f}x"
+          f"  95% CI [{lo_r:.1f}x, {hi_r:.1f}x]")
+    print(f"    ({floored} of {len(boot_cmi_citizen)} resamples had"
+          f" citizen CMI < 1e-4 bits; floored, not dropped.)")
 
     # --------------------------------------------------------
     # 8. CHANNEL EFFICIENCY SUMMARY TABLE

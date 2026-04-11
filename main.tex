@@ -35,7 +35,7 @@
 % ABSTRACT
 % ============================================================
 \begin{abstract}
-We present, to our knowledge, the first empirical measurement of democratic channel capacity using Shannon's information theory.  Modeling representative democracy as a communication channel---with citizen preferences as the source signal, legislative institutions as the channel, and binary policy outcomes as the output---we compute the mutual information $I(X;Y)$ between preference distributions and policy adoption using the Gilens and Page (2014) dataset ($N=1{,}836$ policy issues, 1981--2002).  The citizen-to-policy channel transmits 0.025~bits of information, operating at 2.7\% of Shannon capacity.  The elite-to-policy channel transmits 0.037~bits (4.0\% efficiency), and the interest-group channel 0.020~bits (2.1\%).  All three channels operate below 5\% of theoretical capacity.  Source entropy decomposition shows that this gap is not explained by differences in signal structure ($H(X_\text{citizen}) \approx H(X_\text{elite})$); the channel selectively attenuates citizen signal.  Independent validation on two additional datasets reveals that the system functions as a low-pass filter: macro-ideological transmission (Stimson Policy Mood vs.\ congressional ideology) operates at $\sim$29\% efficiency, while specific-policy transmission remains near zero.  Unlike regression-based approaches, mutual information captures all statistical dependence (linear and nonlinear) and is immune to the multicollinearity that has driven the methodological debate surrounding the original findings.  Results are robust across three Gilens datasets ($N$ up to 4,710), two independent data sources, continuous and discrete estimators, and 1,000 bootstrap resamples.
+We present, to our knowledge, the first empirical measurement of mutual information between citizen preferences and policy outcomes in the United States, using Shannon's information theory.  Modeling representative democracy as a communication channel---with citizen preferences as the source signal, legislative institutions as the channel, and binary policy outcomes as the output---we compute the mutual information $I(X;Y)$ between preference distributions and policy adoption using the Gilens and Page (2014) dataset ($N=1{,}836$ policy issues, 1981--2002).  The citizen-to-policy channel transmits 0.025~bits of information, recovering only 2.7\% of the output entropy $H(Y) = 0.934$ bits.  The elite-to-policy channel transmits 0.037~bits (3.9\% of the theoretical maximum), and the interest-group channel 0.020~bits (2.1\%).  All three channels fall below 5\% of the theoretical maximum.  Source entropy decomposition shows that the gap between citizen and elite MI is not explained by differences in preference dispersion ($H(X_\text{citizen}) \approx H(X_\text{elite})$), ruling out one specific alternative explanation for the differential transmission.  Auxiliary analyses on two additional datasets are consistent with a low-pass-filter interpretation: macro-ideological transmission (Stimson Policy Mood vs.\ congressional ideology) recovers approximately 30\% of the output entropy, while specific-policy transmission remains near zero.  Unlike regression-based approaches, mutual information captures all statistical dependence (linear and nonlinear) and is not affected by the multicollinearity that has driven the methodological debate surrounding the original findings.  Results are robust across three Gilens datasets ($N$ up to 4,710), two auxiliary data sources, continuous and discrete estimators, and 1,000 bootstrap resamples.
 \end{abstract}
 
 \smallskip
@@ -55,7 +55,7 @@ The analogy between democracy and communication is not merely metaphorical.  In 
 
 The most comprehensive attempt to answer this question empirically is due to \citet{gilens2014testing}, who analyzed 1,779 policy issues (later expanded to 1,836 in the replication data) and found that the preferences of median-income Americans had ``near-zero'' independent effect on policy outcomes once the preferences of economic elites and organized interest groups were controlled for.  This finding generated significant attention but also methodological criticism.  \citet{bashir2015} and \citet{branham2017} showed that because citizen and elite preferences are correlated at $r = 0.94$, the multivariate regression used by Gilens and Page suffers from severe multicollinearity, making the individual coefficients unreliable.  \citet{enns2015} argued that the high correlation itself implies citizens usually get what they want, since they want roughly the same things elites want.
 
-These critiques and responses have played out entirely within the framework of linear regression.  We propose a different approach.  Shannon's mutual information $I(X;Y)$ measures the \emph{total} statistical dependence between two random variables---linear and nonlinear---without assuming any parametric model.  It is immune to multicollinearity by construction: mutual information between $X$ and $Y$ is a property of the joint distribution $P(X,Y)$, not of a coefficient in a fitted model.  Moreover, information theory provides an absolute benchmark that regression cannot: \emph{channel capacity}, the theoretical maximum information the channel could transmit.  The ratio of actual mutual information to channel capacity gives a channel efficiency measure that is interpretable without reference to another system.
+These critiques and responses have played out entirely within the framework of linear regression.  We propose a different approach.  Shannon's mutual information $I(X;Y)$ measures the \emph{total} statistical dependence between two random variables---linear and nonlinear---without assuming any parametric model.  Because it is a property of the joint distribution $P(X,Y)$ rather than a coefficient in a fitted model, it is not affected by multicollinearity in the same way that regression coefficients are: the marginal MI $I(X_1;Y)$ is well-defined regardless of $X_1$'s correlation with other predictors.  Highly correlated predictors still complicate the \emph{decomposition} of MI into independent contributions (via conditional MI), but not the measurement of total dependence between each variable and the outcome.  Mutual information also provides a benchmark that regression cannot: a principled upper bound on information transmission---the output entropy $H(Y)$ in our binary-outcome setting, and more generally the channel capacity $C = \max_{P(X)} I(X;Y)$---against which actual transmission can be compared.
 
 To our knowledge, no prior work has computed the mutual information between empirical preference distributions and policy outcomes, or estimated the channel efficiency of a democratic system.  This paper does so.
 
@@ -165,7 +165,7 @@ which gives the additional information $X_1$ provides about $Y$ beyond what $X_2
 
 \subsection{Discretization and Estimation}
 
-Because the preference variables are continuous (proportions on $[0,1]$), we discretize them into $K$ equal-width bins before estimating the joint distribution.  The MI is then computed from the empirical histogram-based estimate of $P(x,y)$.  We use $K = 10$ as our default and verify robustness across $K \in \{5, 8, 10, 15, 20, 25\}$.
+Because the preference variables are continuous (proportions on $[0,100]$ after rescaling), we discretize them into $K$ equal-width bins with edges fixed on the theoretical range $[0, 100]$ (using \texttt{numpy.linspace(0, 100, K+1)} and \texttt{pandas.cut} with explicit edges), not over the observed range.  The MI is then computed from the empirical histogram-based estimate of $P(x,y)$.  We use $K = 10$ as our default and verify robustness across $K \in \{5, 8, 10, 15, 20, 25\}$.  The interest-group net-alignment variable is not on a $[0, 100]$ scale and is binned over its observed range.
 
 Histogram-based MI estimators have a known positive bias of approximately $(K-1)(J-1)/(2N\ln 2)$ for $K$ bins and $J$ output categories~\citep{miller1955}.  For our parameters ($K=10$, $J=2$, $N=1{,}836$), this is approximately $0.004$~bits---roughly 14\% of the citizen MI estimate.  We address this through bootstrap confidence intervals that implicitly account for finite-sample bias.
 
@@ -238,16 +238,16 @@ Channel & $I(X;Y)$ & 95\% CI & $\eta$ \\
  & (bits) & (bits) & (\%) \\
 \midrule
 Citizen (50th \%ile) $\to$ Policy & 0.025 & [0.017, 0.042] & 2.7 \\
-Elite (90th \%ile) $\to$ Policy & 0.037 & [0.027, 0.057] & 4.0 \\
+Elite (90th \%ile) $\to$ Policy & 0.037 & [0.026, 0.055] & 3.9 \\
 Interest Groups $\to$ Policy & 0.020 & --- & 2.1 \\
 \bottomrule
 \end{tabular}
 \smallskip
 
-\footnotesize{$\eta = I(X;Y)/H(Y)$ is the channel efficiency; $H(Y) = 0.934$ bits.}
+\footnotesize{$\eta = I(X;Y)/H(Y)$ is an efficiency measure, with $H(Y) = 0.934$ bits serving as an upper bound on the true channel capacity $C = \max_{P(X)} I(X;Y)$.  The preference variables are discretized into equal-width bins over $[0, 100]$; the interest-group variable uses equal-width bins over its observed range.}
 \end{table}
 
-All three channels transmit negligible information.  The citizen channel resolves 2.7\% of policy outcome uncertainty; the elite channel resolves 4.0\%; the interest-group channel resolves 2.1\%.  No channel operates above 5\% of Shannon capacity.
+All three channels transmit negligible information.  The citizen channel resolves 2.7\% of policy outcome uncertainty; the elite channel resolves 3.9\%; the interest-group channel resolves 2.1\%.  No channel recovers more than 5\% of the output entropy $H(Y) = 0.934$ bits, which is an upper bound on the true channel capacity.
 
 To confirm that these MI values are statistically distinguishable from zero, we perform a permutation test: randomly permute the outcome variable 10,000 times and compute MI for each permutation to construct a null distribution.  All three observed MIs exceed every permuted value ($p < 0.0001$): the citizen channel $z = 12.8$, the elite channel $z = 20.1$, and the interest-group channel $z = 9.2$.  The null distribution has mean $\sim$0.004 bits and maximum $\sim$0.015 bits---well below the observed values.  The near-zero efficiency is statistically significant; 0.025 bits is not noise.
 
@@ -263,18 +263,19 @@ Table~\ref{tab:conditional} reports the conditional MI---the independent contrib
 \toprule
 Measure & Estimate$^\dagger$ (bits) & Bootstrap CI$^\ddagger$ (bits) \\
 \midrule
-$I(\text{Citizen}; Y \,|\, \text{Elite})$ & 0.017 & [0.020, 0.043] \\
-$I(\text{Elite}; Y \,|\, \text{Citizen})$ & 0.029 & [0.030, 0.058] \\
+$I(\text{Citizen}; Y \,|\, \text{Elite})$ & 0.014 & [0.017, 0.037] \\
+$I(\text{Elite}; Y \,|\, \text{Citizen})$ & 0.025 & [0.026, 0.050] \\
 \midrule
-Ratio (Elite / Citizen) & $1.7\times$ & [$1.1\times$, $1.8\times$] \\
+Difference (Elite $-$ Citizen) & $+0.011$ & $[+0.004, +0.020]$ \\
+Ratio (Elite / Citizen), median & $1.4\times$ & $[1.1\times, 1.9\times]$ \\
 \bottomrule
 \end{tabular}
 \smallskip
 
-\footnotesize{$^\dagger$\,Full-sample point estimates.  $^\ddagger$\,Bootstrap percentile CIs (1,000 resamples).  Point estimates fall below bootstrap CI lower bounds because MI estimators have a positive finite-sample bias proportional to $1/N$; bootstrap resamples, having smaller effective sample size due to duplicate observations, are \emph{more} biased upward than the full-sample estimates.  The ratio CI is computed directly from bootstrap resample ratios.  Conditional MI estimates require higher-dimensional joint distributions ($K^2 \times 2$ cells) and are more affected by finite-sample bias than marginal MI; the \emph{direction} (elite $>$ citizen) is robust across all bin counts, but absolute magnitudes should be interpreted cautiously.}
+\footnotesize{$^\dagger$\,Full-sample point estimates.  $^\ddagger$\,Bootstrap percentile CIs (1,000 resamples).  Point estimates fall below the bootstrap CI lower bounds because MI estimators carry a positive finite-sample bias proportional to $1/N$; bootstrap resamples effectively have smaller $N$ (due to duplicate observations) and are therefore \emph{more} biased upward than the full-sample estimates.  We report both the difference (Elite $-$ Citizen), which is well-defined in every resample, and the ratio (Elite / Citizen), which is unstable when the citizen conditional MI is near zero.  For the ratio we report the median across bootstrap resamples with a $10^{-4}$-bit floor on the denominator rather than dropping near-zero draws (dropping would bias the CI downward by excluding the largest elite-advantage cases); in practice zero resamples hit the floor in this computation.  Conditional MI estimates require higher-dimensional joint distributions ($K^2 \times 2$ cells) and are more affected by finite-sample bias than marginal MI; the \emph{direction} (elite $>$ citizen) is robust across bin counts, but the absolute magnitudes should be interpreted as upper bounds on the true values.}
 \end{table}
 
-Elites retain $1.7\times$ the independent influence of citizens, confirming the \emph{direction} of the Gilens--Page finding.  This ratio is robust: at $K=5$ bins (where finite-sample bias is smaller), the conditional MI ratio is $3.8\times$; at $K=7$, it is $2.6\times$.  In all cases, elites retain substantially more independent influence.  However, both absolute magnitudes are near zero, and the Miller--Madow bias correction (see Section~\ref{sec:limitations}) suggests the conditional MI estimates should be interpreted as upper bounds on the true values.
+Elites retain approximately $1.4\times$ the independent conditional MI of citizens, and the difference is clearly positive (95\% CI $[+0.004, +0.020]$ bits).  The ratio is noisier than the difference because the denominator is small, but it is positive in every specification we examined.  This result confirms the \emph{direction} of the Gilens--Page finding while being honest about the fact that both absolute magnitudes are near zero: knowing elite preferences adds roughly 0.025~bits of additional information about policy outcomes beyond what citizen preferences already provide, and knowing citizen preferences adds roughly 0.014~bits beyond what elite preferences already provide.  These are upper bounds; the Miller--Madow bias correction (see Section~\ref{sec:limitations}) suggests the true conditional MI values are even smaller.
 
 \subsection{Channel Efficiency Comparison}
 
@@ -289,7 +290,7 @@ Table~\ref{tab:efficiency} synthesizes the channel efficiency results.
 Channel & MI (bits) & $H(Y)$ (bits) & Efficiency \\
 \midrule
 Citizen $\to$ Policy & 0.025 & 0.934 & 2.7\% \\
-Elite $\to$ Policy & 0.037 & 0.934 & 4.0\% \\
+Elite $\to$ Policy & 0.037 & 0.934 & 3.9\% \\
 Interest Groups $\to$ Policy & 0.020 & 0.934 & 2.1\% \\
 \bottomrule
 \end{tabular}
@@ -322,7 +323,7 @@ Figure~\ref{fig:efficiency} presents the channel efficiency comparison graphical
 ]
 \addplot[fill=blue!50, draw=blue!70] coordinates {
     (Citizen, 2.7) +- (0, 0.8)
-    (Elite, 4.0) +- (0, 1.0)
+    (Elite, 3.9) +- (0, 1.0)
     (Int.\ Groups, 2.1) +- (0, 0.6)
 };
 \draw[dashed, red, thick] (axis cs:Citizen, 5) -- (axis cs:Int.\ Groups, 5);
@@ -353,16 +354,16 @@ Figure~\ref{fig:sensitivity} shows MI estimates across bin counts from 5 to 25.
     mark size=2.5pt,
 ]
 \addplot[color=blue, mark=o, thick] coordinates {
-    (5, 0.0225) (8, 0.0273) (10, 0.0251) (15, 0.0277) (20, 0.0300) (25, 0.0311)
+    (5, 0.0240) (8, 0.0268) (10, 0.0253) (15, 0.0265) (20, 0.0299) (25, 0.0298)
 };
 \addlegendentry{Citizen (50th \%ile)}
 \addplot[color=red, mark=square*, thick] coordinates {
-    (5, 0.0329) (8, 0.0381) (10, 0.0374) (15, 0.0419) (20, 0.0400) (25, 0.0426)
+    (5, 0.0325) (8, 0.0370) (10, 0.0367) (15, 0.0403) (20, 0.0435) (25, 0.0462)
 };
 \addlegendentry{Elite (90th \%ile)}
 \end{axis}
 \end{tikzpicture}
-\caption{Mutual information estimates as a function of the number of discretization bins.  The elite channel consistently exceeds the citizen channel, and the ratio remains between $1.3\times$ and $1.5\times$ across all bin counts.  The gradual increase with $K$ reflects finer resolution of the joint distribution structure.}
+\caption{Mutual information estimates as a function of the number of discretization bins (equal-width on $[0, 100]$).  The elite channel consistently exceeds the citizen channel, with a ratio between $1.4\times$ and $1.6\times$ across bin counts.  The gradual increase with $K$ reflects finer resolution of the joint distribution structure, partially offset by increasing finite-sample bias.}
 \label{fig:sensitivity}
 \end{figure}
 
@@ -380,8 +381,8 @@ Table~\ref{tab:temporal} splits the data by decade to test whether channel effic
 \toprule
 Period & $N$ & $I_\text{cit}$ & $\eta_\text{cit}$ & $I_\text{elite}$ & $\eta_\text{elite}$ \\
 \midrule
-1981--1990 & 610 & 0.033 & 3.4\% & 0.038 & 4.0\% \\
-1991--2002 & 1,226 & 0.037 & 4.1\% & 0.048 & 5.3\% \\
+1981--1990 & 610 & 0.032 & 3.3\% & 0.039 & 4.1\% \\
+1991--2002 & 1,226 & 0.034 & 3.7\% & 0.047 & 5.2\% \\
 \bottomrule
 \end{tabular}
 \smallskip
@@ -411,17 +412,17 @@ Figure~\ref{fig:temporal} visualizes this finding.
     enlarge x limits=0.4,
     legend style={at={(0.02,0.98)}, anchor=north west, font=\footnotesize},
 ]
-\addplot[fill=blue!50, draw=blue!70] coordinates {(1981--1990, 3.4) (1991--2002, 4.1)};
+\addplot[fill=blue!50, draw=blue!70] coordinates {(1981--1990, 3.3) (1991--2002, 3.7)};
 \addlegendentry{Citizen}
-\addplot[fill=red!50, draw=red!70] coordinates {(1981--1990, 4.0) (1991--2002, 5.3)};
+\addplot[fill=red!50, draw=red!70] coordinates {(1981--1990, 4.1) (1991--2002, 5.2)};
 \addlegendentry{Elite}
 \end{axis}
 \end{tikzpicture}
-\caption{Channel efficiency by decade.  Elite channel efficiency increases from 4.0\% to 5.3\%, while citizen efficiency increases from 3.4\% to 4.1\%.  The elite--citizen gap widens from 0.6 to 1.2 percentage points.}
+\caption{Channel efficiency by decade.  Elite channel efficiency increases from 4.1\% to 5.2\%, while citizen efficiency increases from 3.3\% to 3.7\%.  The elite--citizen gap widens from 0.8 to 1.5 percentage points.}
 \label{fig:temporal}
 \end{figure}
 
-Both channels show slightly higher MI in the later period, but the elite channel grows faster.  The elite--citizen efficiency gap doubles from 0.6 percentage points (1981--1990) to 1.2 percentage points (1991--2002).  We interpret this cautiously: the subsamples differ in size (610 vs.\ 1,226), and MI estimates are noisier for smaller samples.  Nevertheless, the direction is consistent with accounts of increasing elite influence during the deregulatory period of the 1990s and early 2000s.
+Both channels show slightly higher MI in the later period, but the elite channel grows faster.  The elite--citizen efficiency gap widens from 0.8 percentage points (1981--1990) to 1.5 percentage points (1991--2002).  We interpret this cautiously: the subsamples differ in size (610 vs.\ 1,226) and MI estimates are noisier for smaller samples.  The direction is consistent with accounts of increasing elite influence during the deregulatory period of the 1990s and early 2000s, but we do not rest any strong claims on the size of the gap.
 
 \subsection{Cross-Dataset Validation}
 
@@ -435,7 +436,7 @@ Table~\ref{tab:crossval} reports MI estimates across all three Russell Sage data
 \toprule
 Dataset & $N$ & Adopt & $I_\text{cit}$ & $\eta_\text{cit}$ & $I_\text{elite}$ & $\eta_\text{elite}$ \\
 \midrule
-DS1 & 1,836 & 35.0\% & 0.025 & 2.7\% & 0.037 & 4.0\% \\
+DS1 & 1,836 & 35.0\% & 0.025 & 2.7\% & 0.037 & 3.9\% \\
 DS2 & 2,355 & 33.5\% & 0.026 & 2.8\% & 0.035 & 3.9\% \\
 DS3 & 4,710 & 33.5\% & 0.026 & 2.8\% & 0.035 & 3.9\% \\
 DS3$^*$ & 4,188 & 13.3\% & 0.010 & 1.7\% & 0.014 & 2.5\% \\
@@ -463,19 +464,19 @@ We test this by computing the source entropy $H(X)$ for each group and reporting
 Group & $H(X)$ & $I(X;Y)/H(Y)$ & $I(X;Y)/H(X)$ & Ratio \\
  & (bits) & (output) & (input) & \\
 \midrule
-Citizen & 3.116 & 2.7\% & 0.8\% & --- \\
-Elite & 3.088 & 4.0\% & 1.2\% & $1.50\times$ \\
+Citizen & 3.066 & 2.7\% & 0.8\% & --- \\
+Elite & 3.025 & 3.9\% & 1.2\% & $1.47\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The source entropies are virtually identical: $H(X_\text{cit}) = 3.116$ bits vs.\ $H(X_\text{elite}) = 3.088$ bits (ratio 1.009).  Citizens and elites exhibit equally dispersed preference distributions in this dataset.  Consequently, the input-normalized ratio ($1.50\times$) is indistinguishable from the output-normalized ratio ($1.49\times$).
+The source entropies are effectively identical: $H(X_\text{cit}) = 3.066$ bits vs.\ $H(X_\text{elite}) = 3.025$ bits (ratio 1.013).  Citizens and elites exhibit equally dispersed preference distributions in this dataset.  Consequently, the input-normalized ratio ($1.47\times$) is indistinguishable from the output-normalized ratio ($1.45\times$).
 
-This result is decisive: \textbf{the MI gap between citizen and elite channels is not explained by differences in source structure.}  The channel selectively attenuates the citizen signal relative to the elite signal, even though both signals have the same entropy.
+This result rules out one specific alternative explanation: the MI gap is \emph{not} an artifact of differences in preference dispersion.  The citizen signal is relatively attenuated compared to the elite signal despite having effectively the same entropy.  We note, however, that equal entropy does not establish equal signal quality in every sense---it does not rule out differences in measurement reliability, preference stability, or the sophistication of the preferences being measured.  What it does rule out is the specific objection that the elite signal is ``easier to transmit'' because it is more concentrated.
 
 \subsection{Continuous MI Estimator (KSG)}
 
-To verify that our results are not artifacts of the discretization procedure, we re-estimate MI using the Kraskov--St\"{o}gbauer--Grassberger $k$-nearest-neighbor estimator~\citep{kraskov2004}, which operates on continuous data and requires no binning.
+To verify that our results are not artifacts of the discretization procedure, we re-estimate MI using scikit-learn's \texttt{mutual\_info\_classif} function, which implements a Kraskov--St\"{o}gbauer--Grassberger--style $k$-nearest-neighbor estimator~\citep{kraskov2004} with small additive noise to break ties among repeated values and a floor of zero on negative estimates.  The estimator operates on continuous data and requires no binning.
 
 \begin{table}[t]
 \centering
@@ -497,10 +498,10 @@ The KSG estimates are slightly lower than the binned estimates, consistent with 
 % ============================================================
 % 6. INDEPENDENT VALIDATION
 % ============================================================
-\section{Independent Validation}
+\section{Auxiliary Analyses}
 \label{sec:validation}
 
-The Gilens--Page dataset measures one specific operationalization of preference-policy linkage.  We now test whether the low-efficiency finding replicates on entirely independent data sources with different variable definitions.
+The Gilens--Page dataset measures one specific operationalization of preference-policy linkage.  We now examine two auxiliary datasets that operationalize the relationship differently, to test whether the low-MI finding appears in other empirical settings.  These analyses are suggestive rather than definitive: both use much smaller samples than the Gilens corpus, and both require judgment calls (topic crosswalks, aggregation levels) that the primary Gilens analysis does not.  We report them here because the qualitative direction is informative, not because any one of them could stand alone as confirmation.
 
 \subsection{Macro-Ideological Channel: Stimson Policy Mood vs.\ Congressional Ideology}
 
@@ -510,26 +511,26 @@ We merge these annual series and compute $I(\text{Mood}; \text{Congressional Ide
 
 \begin{table}[t]
 \centering
-\caption{Macro-ideological channel: Stimson Mood vs.\ DW-NOMINATE ($K=6$ bins, $N=36$ years).}
+\caption{Macro-ideological channel: Stimson Mood vs.\ DW-NOMINATE.  Full-period MI computed with $K=6$ bins; subperiods use $K=4$ to accommodate the smaller samples.  Congresses are matched to the years they sat (1st Congress: 1789--1791).}
 \label{tab:stimson}
-\begin{tabular}{@{}lcc@{}}
+\begin{tabular}{@{}lccc@{}}
 \toprule
-Period & $I(\text{Mood}; \text{Congress})$ (bits) & $\eta$ \\
+Period & $N$ & $I(\text{Mood}; \text{Congress})$ (bits) & $\eta$ \\
 \midrule
-Full (1953--2023) & 0.632 & 28.9\% \\
+Full (1953--2023) & 36 & 0.740 & 32.2\% \\
 \midrule
-1952--1980 & 0.639 & 33.2\% \\
-1981--2002 & 0.198 & 19.9\% \\
-2003--2024 & 0.319 & 33.7\% \\
+1952--1980 & 14 & 0.985 & 55.1\% \\
+1981--2002 & 11 & 0.526 & 39.8\% \\
+2003--2024 & 11 & 0.024 & 2.5\% \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The macro-ideological channel operates at approximately \textbf{29\% of capacity}---an order of magnitude higher than the specific-policy channel measured by Gilens (2.7\%).  This confirms the ``low-pass filter'' interpretation: the democratic system transmits broad ideological mood (the DC component of the preference signal) while attenuating specific policy preferences (the high-frequency content).  This is consistent with the thermostatic responsiveness literature~\citep{soroka2010}.
+Over the full period, the macro-ideological channel recovers approximately \textbf{32\% of the output entropy}---an order of magnitude higher than the specific-policy channel measured by Gilens (2.7\%).  This is consistent with a ``low-pass filter'' interpretation of the democratic system: broad ideological mood (the DC component of the preference signal) is transmitted with moderate fidelity while specific policy preferences (the high-frequency content) are not.  This pattern is consistent with the thermostatic responsiveness literature~\citep{soroka2010}.
 
-A caveat is warranted: Stimson's Mood index aggregates hundreds of survey items, which naturally smooths measurement error and reduces variance.  Part of the higher MI may therefore reflect reduced measurement noise in the aggregated signal rather than higher institutional fidelity.  Nevertheless, the order-of-magnitude difference ($\sim$29\% vs.\ $\sim$3\%) is too large to be explained by aggregation smoothing alone, and the finding is consistent across bin counts ($K{=}4$ through $K{=}10$).
+A caveat is warranted on both directions.  On the one hand, Stimson's Mood index aggregates hundreds of survey items, which naturally smooths measurement error and reduces variance, so part of the higher MI may reflect lower measurement noise in the aggregated signal rather than higher institutional fidelity.  On the other hand, this analysis operates on very thin data ($N=36$ years), and both variables are slow-moving time series, which inflates apparent association.  The specific efficiency figures should be read as order-of-magnitude estimates, not precise measurements.
 
-The temporal pattern is also informative: macro-channel efficiency drops to 19.9\% during the 1981--2002 period covered by the Gilens data---the same era that shows widening elite--citizen gaps in the specific-policy analysis.  It partially recovers in the post-2002 period.
+The temporal decomposition, despite operating on $N=11$--$14$ per period, shows a striking and monotonic decline: the macro-channel recovers more than 55\% of the output entropy in the 1952--1980 period, falls to $\sim$40\% during the 1981--2002 period covered by the Gilens data, and collapses to 2.5\%---indistinguishable from the specific-policy channel---in 2003--2024.  We flag this with appropriate caution given the sample sizes, but the direction is clear enough to warrant follow-up.  If it survives more rigorous temporal analysis, it would suggest that the low-pass-filter characterization is itself a historical artifact and that the contemporary macro-channel has degraded to the same near-independence as the micro-channel.
 
 \subsection{Topic-Specific Channel: Public Priorities vs.\ Budget Allocation}
 
@@ -573,7 +574,7 @@ Dataset & Channel Type & Efficiency \\
 \midrule
 Gilens \& Page & Specific policy (citizen) & 2.7\% \\
 Gilens \& Page & Specific policy (elite) & 4.0\% \\
-Stimson/NOMINATE & Macro ideology & 28.9\% \\
+Stimson/NOMINATE & Macro ideology (full period) & 32.2\% \\
 Policy Agendas & Topic-specific (defense) & 33.0\% \\
 Policy Agendas & Topic-specific (health) & 8.9\% \\
 Policy Agendas & Topic-specific (mean) & 16.1\% \\
@@ -595,11 +596,11 @@ A foundational question is whether low MI reflects channel failure or difference
 
 Our source entropy decomposition (Table~\ref{tab:source}) resolves this decisively.  The source entropies are virtually identical ($H(X_\text{cit}) = 3.116$, $H(X_\text{elite}) = 3.088$ bits).  The MI gap is entirely attributable to differential channel treatment, not to differences in signal coherence.
 
-This finding has a further implication.  One might argue that elite preferences, being more ``compressed''---precise, stable, backed by detailed knowledge---are inherently easier to transmit.  But in this dataset, that argument fails empirically: the preference distributions have the same entropy.  The channel discriminates by source identity, not by signal quality.
+This finding has a further implication.  One might argue that elite preferences, being more ``compressed''---precise, stable, backed by detailed knowledge---are inherently easier to transmit.  In this dataset, that specific argument fails empirically: the preference distributions have the same dispersion entropy.  The relative attenuation of the citizen signal is therefore not explained by differential signal concentration, though it remains consistent with several other causal mechanisms the static MI framework cannot adjudicate.
 
 \subsection{What 2.7\% Means---and What It Does Not}
 
-The citizen channel operates at 2.7\% of Shannon capacity.  This means that knowing citizen preferences resolves 2.7\% of the uncertainty about whether a proposed policy change will be adopted.  The remaining 97.3\% of the outcome is determined by factors other than citizen preferences as measured in national surveys.
+The citizen channel recovers 2.7\% of the output entropy $H(Y)$.  This means that knowing citizen preferences resolves 2.7\% of the uncertainty about whether a proposed policy change will be adopted.  The remaining 97.3\% of the outcome is determined by factors other than citizen preferences as measured in national surveys.
 
 This does \emph{not} mean that democracy is ``worthless'' or that citizens have ``no influence.''  Several caveats are essential:
 
@@ -615,7 +616,7 @@ This does \emph{not} mean that democracy is ``worthless'' or that citizens have 
 
 A fundamental challenge to the channel model is that the source signal may not be exogenous.  If citizen preferences are shaped by elite messaging, media framing, or the policy environment itself, then low MI between ``citizen preferences'' and ``policy outcomes'' may reflect a noisy or manufactured source rather than a broken channel.
 
-We cannot fully resolve this within the static MI framework.  However, the existence of \emph{differential} MI across channels constitutes evidence that the source signal is real and that the channel treats it selectively.  If citizen preferences were simply noise, we would expect all channels to show equally low MI.  The elite channel's higher efficiency (4.0\% vs.\ 2.7\%) demonstrates that predictive signal exists in the preference data---it is selectively transmitted for one group and attenuated for the other.  The source entropy decomposition (Table~\ref{tab:source}) reinforces this: the citizen signal has the same entropy as the elite signal, so the differential transmission cannot be attributed to differences in signal quality or coherence.
+We cannot fully resolve this within the static MI framework.  However, the existence of \emph{differential} MI across channels provides some evidence that the source signal is real and that the two groups are being transmitted differently.  If citizen preferences were simply noise, we would expect all channels to show equally low MI.  The elite channel's higher efficiency (3.9\% vs.\ 2.7\%) suggests that predictive signal exists in the preference data and is relatively more associated with policy outcomes for one group than the other.  The source entropy decomposition (Table~\ref{tab:source}) adds that the differential is not attributable to differences in preference dispersion, though it leaves open other sources of differential signal quality.
 
 \subsection{Why Information Theory Sidesteps the Bashir--Branham Critique}
 
@@ -659,7 +660,7 @@ We emphasize that these are analytical observations, not policy recommendations.
 
 Our framework distinguishes two sources of information loss: \emph{encoding loss} at the input stage and \emph{channel noise} during transmission.  It is important to note that voting is not compression in the information-theoretic sense.  True compression (Shannon source coding) exploits \emph{redundancy} in the source to reduce representation while preserving information content: JPEG removes spatial frequencies the eye cannot perceive; the compressed signal can be reconstructed within a specified distortion bound.  Voting does none of this.  A citizen enters the booth with preferences across hundreds of policy dimensions---a rich, high-dimensional signal---and the ballot offers a single binary choice between two candidates.  This is not redundancy removal; it is projection onto a low-dimensional axis that the voter did not choose.  The candidates define the axis.  In quantization-theoretic terms, this is Lloyd--Max quantization inverted: the codewords are chosen not to minimize the electorate's representation distortion, but to maximize each candidate's probability of selection~\citep{cover2006}.  The codebook is adversarially imposed.  The information destroyed at the encoding stage is not noise---it is signal.
 
-The independent validation data provide partial evidence.  The Stimson--NOMINATE channel (29\% efficiency) requires no encoding compression: both mood and ideology are measured on the same single dimension.  Yet it still operates well below capacity, suggesting that encoding loss is not the sole explanation---the channel itself attenuates signal even when dimensionality reduction is not required.
+The auxiliary data provide partial evidence.  The Stimson--NOMINATE channel (32\% over the full period, but with strong temporal decline) requires no encoding compression: both mood and ideology are measured on the same single dimension.  Yet even at its peak it recovers only about half the output entropy, and the temporal decomposition suggests the figure has collapsed in the recent period.  Encoding loss is not the sole explanation for the low-MI finding; the channel itself attenuates signal even when dimensionality reduction is not required.
 
 \subsection{Methodological Limitations}
 \label{sec:limitations}
@@ -678,7 +679,7 @@ Several limitations warrant discussion.
 
 \emph{Non-stationarity.}  Our pooled MI estimates assume a stationary relationship $P(Y|X)$ across the full 1981--2002 period.  If this relationship shifted---due to deregulation, media consolidation, or rising polarization---pooling across regimes will understate the MI of any individual regime.  The period-specific analysis (Table~\ref{tab:temporal}) provides partial evidence of time-variation, with both channels showing higher MI in 1991--2002 than 1981--1990.  Rolling-window estimation would offer a more granular view, but the resulting subsample sizes ($N < 200$) would produce unreliable histogram-based MI estimates.  We note that non-stationarity biases pooled MI estimates \emph{downward}: a time-varying relationship averaged across regimes yields lower MI than either regime alone.  Our efficiency figures are therefore conservative with respect to this concern.
 
-\emph{Small-sample validation caveats.}  The Stimson--NOMINATE analysis ($N{=}36$ years, $K{=}6$ bins) and the MIP--Budget analysis ($N{=}69$ years, $K{=}4$ bins) operate with thin data---approximately 6 and 17 observations per bin, respectively.  The qualitative finding that macro-ideological transmission greatly exceeds specific-policy transmission is robust (it holds across $K{=}4$ through $K{=}10$), but the specific efficiency percentages (29\%, 33\%) should be treated as order-of-magnitude estimates rather than precise measurements.
+\emph{Small-sample auxiliary caveats.}  The Stimson--NOMINATE analysis ($N=36$ years, $K=6$ bins) and the MIP--Budget analysis ($N=69$ years, $K=4$ bins) operate with thin data---approximately 6 and 17 observations per bin, respectively---and both use slow-moving aggregate time series in which apparent MI can be inflated by persistence.  The qualitative finding that macro-ideological transmission exceeds specific-policy transmission is consistent across bin counts, but the specific efficiency percentages should be treated as order-of-magnitude estimates rather than precise measurements.  These analyses supplement rather than replace the primary Gilens analysis.
 
 % ============================================================
 % 8. CONCLUSION
@@ -689,11 +690,11 @@ Several limitations warrant discussion.
 We have presented the first information-theoretic measurement of democratic preference-policy transmission using empirical data.  Applying Shannon's mutual information framework to the Gilens and Page (2014) dataset and validating on two independent data sources, we find:
 
 \begin{enumerate}
-\item All three specific-policy channels---citizen, elite, and interest group---operate below 5\% of Shannon capacity.  The citizen channel transmits 0.025~bits (2.7\% efficiency); the elite channel transmits 0.037~bits (4.0\%); the interest-group channel transmits 0.020~bits (2.1\%).
+\item All three specific-policy channels---citizen, elite, and interest group---recover less than 5\% of the output entropy $H(Y) = 0.934$ bits.  The citizen channel transmits 0.025~bits (2.7\% efficiency); the elite channel transmits 0.037~bits (3.9\%); the interest-group channel transmits 0.020~bits (2.1\%).
 
-\item Source entropy decomposition shows that the MI gap between citizen and elite channels is \emph{not} explained by differences in signal structure ($H(X_\text{cit}) \approx H(X_\text{elite})$); the channel selectively attenuates the citizen signal.
+\item Source entropy decomposition rules out one specific alternative explanation for the MI gap: the gap is \emph{not} an artifact of differences in preference dispersion ($H(X_\text{cit}) \approx H(X_\text{elite})$).  The citizen signal is relatively attenuated in the channel despite having equivalent dispersion entropy.
 
-\item The democratic system functions as a low-pass filter: the macro-ideological channel (Stimson Mood $\to$ Congressional Ideology) operates at 29\% efficiency, while specific-policy transmission operates at 3--4\%.  Topic-specific efficiency varies from 9\% (health) to 33\% (defense), suggesting adversarial noise is injected selectively by domain.
+\item An auxiliary analysis suggests the democratic system has historically functioned as a low-pass filter: the macro-ideological channel (Stimson Mood $\to$ Congressional Ideology) recovers approximately 32\% of the output entropy over the full 1953--2023 period.  Topic-specific efficiency in a second auxiliary analysis varies from 9\% (health) to 33\% (defense), consistent with the possibility that transmission differs by domain.  Both auxiliary analyses operate on thin data and should be read as suggestive.
 
 \item The findings are robust across three Gilens datasets ($N$ up to 4,710), two independent data sources, six discretization schemes, continuous (KSG) and discrete estimators, and 1,000 bootstrap resamples.
 \end{enumerate}

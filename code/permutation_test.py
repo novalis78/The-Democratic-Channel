@@ -33,7 +33,13 @@ def load_data(path=DATA_PATH):
 
 
 def compute_mi(x, y, n_bins=N_BINS):
-    x_binned = pd.cut(x, bins=n_bins, labels=False)
+    """Equal-width bins on [0, 100] for preferences; observed-range otherwise."""
+    x_arr = pd.Series(x).astype(float)
+    if (x_arr.dropna() >= 0).all() and (x_arr.dropna() <= 100).all():
+        edges = np.linspace(0, 100, n_bins + 1)
+        x_binned = pd.cut(x_arr, bins=edges, labels=False, include_lowest=True)
+    else:
+        x_binned = pd.cut(x_arr, bins=n_bins, labels=False)
     mask = ~np.isnan(x_binned)
     x_b = x_binned[mask].astype(int)
     y_b = y[mask].astype(int)

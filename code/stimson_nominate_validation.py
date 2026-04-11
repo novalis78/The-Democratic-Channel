@@ -56,7 +56,8 @@ def run():
 
     # Load DW-NOMINATE
     nom = pd.read_csv('HSall_members.csv', low_memory=False)
-    nom['year_start'] = 1787 + 2 * (nom['congress'] - 1)
+    # 1st Congress sat 1789-1791; each Congress spans 2 years.
+    nom['year_start'] = 1789 + 2 * (nom['congress'] - 1)
     nom_dr = nom[nom['party_code'].isin([100, 200])].copy()
     annual_nom = nom_dr.groupby('year_start')['nominate_dim1'].median().reset_index()
     annual_nom.columns = ['Year', 'congress_ideology']

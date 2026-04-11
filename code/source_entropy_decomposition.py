@@ -39,8 +39,14 @@ def load_data(path=DATA_PATH):
 
 
 def compute_entropy(x, n_bins=N_BINS):
-    """Compute Shannon entropy H(X) of a discretized continuous variable."""
-    x_binned = pd.cut(x, bins=n_bins, labels=False)
+    """Compute Shannon entropy H(X) of a discretized continuous variable.
+    Uses equal-width bins on [0, 100] for preferences; observed-range otherwise."""
+    x_arr = pd.Series(x).astype(float)
+    if (x_arr.dropna() >= 0).all() and (x_arr.dropna() <= 100).all():
+        edges = np.linspace(0, 100, n_bins + 1)
+        x_binned = pd.cut(x_arr, bins=edges, labels=False, include_lowest=True)
+    else:
+        x_binned = pd.cut(x_arr, bins=n_bins, labels=False)
     mask = ~np.isnan(x_binned)
     x_b = x_binned[mask].astype(int)
     counts = np.bincount(x_b, minlength=n_bins)
@@ -49,8 +55,14 @@ def compute_entropy(x, n_bins=N_BINS):
 
 
 def compute_mi(x, y, n_bins=N_BINS):
-    """Compute mutual information I(X;Y) via histogram estimation."""
-    x_binned = pd.cut(x, bins=n_bins, labels=False)
+    """Compute mutual information I(X;Y) via histogram estimation.
+    Uses equal-width bins on [0, 100] for preferences; observed-range otherwise."""
+    x_arr = pd.Series(x).astype(float)
+    if (x_arr.dropna() >= 0).all() and (x_arr.dropna() <= 100).all():
+        edges = np.linspace(0, 100, n_bins + 1)
+        x_binned = pd.cut(x_arr, bins=edges, labels=False, include_lowest=True)
+    else:
+        x_binned = pd.cut(x_arr, bins=n_bins, labels=False)
     mask = ~np.isnan(x_binned)
     x_b = x_binned[mask].astype(int)
     y_b = y[mask].astype(int)
