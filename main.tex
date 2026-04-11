@@ -79,6 +79,8 @@ These debates remain unresolved because the underlying statistical framework---m
 
 The information-processing perspective on governance has deep roots.  \citet{hayek1945} argued that the central problem of social organization is the efficient use of dispersed knowledge---an argument that is fundamentally information-theoretic, though it predates Shannon's formalism.  \citet{achen2016} have argued that the ``folk theory'' of democracy---in which citizens hold stable preferences that elections translate into policy---is empirically false, a conclusion consonant with our low-MI finding.  \citet{bueno2003} developed selectorate theory, which argues that democratic institutions produce public goods through structural incentives independent of preference transmission---the strongest theoretical challenge to the premise that channel efficiency matters.
 
+A closely related literature on \emph{policy drift}~\citep{hacker2004,galvin2020} describes a mechanism by which formal institutions remain nominally unchanged while their effective outputs diverge from stated purposes, because the surrounding economic and social environment shifts and the institutions are not updated to compensate.  Drift is typically invisible in a snapshot of laws or roll-call votes but visible in outcomes: minimum wage legislation drifts when inflation is not indexed, labor law drifts when the workforce shifts to non-standard employment, campaign-finance rules drift when new fundraising vehicles outpace the regulatory vocabulary.  In information-theoretic terms, drift is a low-frequency degradation of the preference-to-policy channel that a static institutional analysis will miss but that a mutual-information measurement across years should capture as declining MI over time.  The temporal pattern we observe in the auxiliary Stimson--NOMINATE analysis (Section~\ref{sec:validation}) is consistent with drift---and more broadly, our diagnostic framework provides a quantitative complement to the policy-drift literature's qualitative case studies.
+
 Information-theoretic concepts have appeared in political science, but sporadically and without systematic application to preference-policy data.  \citet{matsusaka1995} modeled voter turnout using an information-theoretic framework, treating elections as signals about candidate quality.  Work in the physics of social dynamics has used Shannon entropy to characterize opinion distributions~\citep{caticha2015}, and studies of voting power have drawn on mutual information to quantify a voter's influence on outcomes~\citep{kirsch2007}.  \citet{downs1957} foreshadowed information-theoretic reasoning by framing the ``rational ignorance'' of voters as a cost-benefit calculation about information acquisition.
 
 However, we are not aware of any work that computes the actual mutual information between empirically measured citizen preferences and policy outcomes.  The gap is striking: the mathematical machinery exists, the data exist, yet the measurement has not been performed.
@@ -530,7 +532,7 @@ Over the full period, the macro-ideological channel recovers approximately \text
 
 A caveat is warranted on both directions.  On the one hand, Stimson's Mood index aggregates hundreds of survey items, which naturally smooths measurement error and reduces variance, so part of the higher MI may reflect lower measurement noise in the aggregated signal rather than higher institutional fidelity.  On the other hand, this analysis operates on very thin data ($N=36$ years), and both variables are slow-moving time series, which inflates apparent association.  The specific efficiency figures should be read as order-of-magnitude estimates, not precise measurements.
 
-The temporal decomposition, despite operating on $N=11$--$14$ per period, shows a striking and monotonic decline: the macro-channel recovers more than 55\% of the output entropy in the 1952--1980 period, falls to $\sim$40\% during the 1981--2002 period covered by the Gilens data, and collapses to 2.5\%---indistinguishable from the specific-policy channel---in 2003--2024.  We flag this with appropriate caution given the sample sizes, but the direction is clear enough to warrant follow-up.  If it survives more rigorous temporal analysis, it would suggest that the low-pass-filter characterization is itself a historical artifact and that the contemporary macro-channel has degraded to the same near-independence as the micro-channel.
+The temporal decomposition, despite operating on $N=11$--$14$ per period, shows a striking and monotonic decline: the macro-channel recovers more than 55\% of the output entropy in the 1952--1980 period, falls to $\sim$40\% during the 1981--2002 period covered by the Gilens data, and collapses to 2.5\%---indistinguishable from the specific-policy channel---in 2003--2024.  We flag this with appropriate caution given the sample sizes, but the direction is clear enough to warrant follow-up.  If it survives more rigorous temporal analysis, it would suggest that the low-pass-filter characterization is itself a historical artifact and that the contemporary macro-channel has degraded to the same near-independence as the micro-channel.  This pattern is what the policy-drift literature~\citep{hacker2004,galvin2020} predicts qualitatively: the formal institutions remain unchanged while their effective transmission of public preferences into policy degrades over time.  Our measurement framework provides a quantitative complement to that literature, turning drift from an interpretive judgment into a computable quantity.
 
 \subsection{Topic-Specific Channel: Public Priorities vs.\ Budget Allocation}
 
@@ -788,6 +790,16 @@ Gilens, M. (2012).
 Gilens, M. \& Page, B.~I. (2014).
 \newblock Testing theories of {A}merican politics: Elites, interest groups, and average citizens.
 \newblock \emph{Perspectives on Politics}, 12(3):564--581.
+
+\bibitem[Hacker(2004)]{hacker2004}
+Hacker, J.~S. (2004).
+\newblock Privatizing risk without privatizing the welfare state: The hidden politics of social policy retrenchment in the {U}nited {S}tates.
+\newblock \emph{American Political Science Review}, 98(2):243--260.
+
+\bibitem[Galvin \& Hacker(2020)]{galvin2020}
+Galvin, D.~J. \& Hacker, J.~S. (2020).
+\newblock The political effects of policy drift: Policy stalemate and {A}merican political development.
+\newblock \emph{Studies in American Political Development}, 34(2):216--238.
 
 \bibitem[Hayek(1945)]{hayek1945}
 Hayek, F.~A. (1945).
